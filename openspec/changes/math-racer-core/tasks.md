@@ -50,6 +50,7 @@
 - [x] 8.5 Implementar teclado en pantalla (dígitos, menos, borrar, enviar) para `pointer: coarse`; verificar con Testing Library y en vista móvil del navegador
 - [x] 8.6 Implementar indicadores en vivo (posición, velocidad, racha, tiempo, nivel) y efecto de nitro; verificar en `pnpm dev`
 - [x] 8.7 Implementar estado de jugador terminado, pantalla de resultados (clasificación, estadísticas, récords, desbloqueos, correr de nuevo / menú) y abandono con Escape + confirmación; verificar con Testing Library que abandonar no modifica el perfil y que correr de nuevo usa otra semilla
+- [x] 8.8 Agregar el botón "Ver resultados" cuando el jugador ya llegó: el controlador completa la carrera al instante con el motor y se muestran los resultados; verificar con Testing Library que aparece solo tras la llegada y que la clasificación es idéntica a esperar
 
 ## 9. Integración
 

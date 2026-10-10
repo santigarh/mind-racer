@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlagCheckered, SignOut } from '@phosphor-icons/react';
+import { ChartBar, FlagCheckered, SignOut } from '@phosphor-icons/react';
 import type { RaceSnapshot } from '@mind-racer/engine';
 import type { RaceController } from '../game/RaceController';
 import { useRaceController } from '../game/useRaceController';
@@ -109,6 +109,19 @@ export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps)
             Llegaste {ordinal(player.position)} en {formatTime(player.finishTimeMs!)}
           </p>
           <p className={styles.doneHint}>{finished ? 'Carrera terminada' : 'Esperando a los demás corredores'}</p>
+          {!finished && (
+            <Button
+              className={styles.doneAction}
+              onClick={() => {
+                const final = controller.finishNow();
+                if (final) onFinishRef.current(final);
+              }}
+              autoFocus
+            >
+              <ChartBar size={20} weight="bold" aria-hidden />
+              Ver resultados
+            </Button>
+          )}
         </section>
       ) : (
         <ChallengePanel

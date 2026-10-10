@@ -94,6 +94,44 @@ describe('RaceController', () => {
     expect(controller.getState().snapshot.countdownRemainingMs).toBeGreaterThan(0);
   });
 
+  it('finishNow solo funciona tras la llegada del jugador y da la misma clasificación que esperar', () => {
+    /** Same seed and player answers; one waits for the bots, the other skips. */
+    const run = (skip: boolean) => {
+      let wall = 0;
+      const controller = new RaceController({
+        seed: 21,
+        level: 1,
+        playerName: 'Ana',
+        config: { distance: 60 },
+        now: () => wall,
+        autoLoop: false,
+      });
+      const advance = (ms: number) => {
+        for (let t = 0; t < ms; t += 16) {
+          wall += 16;
+          controller.tick();
+        }
+      };
+      controller.start();
+      advance(3000);
+      expect(controller.finishNow()).toBeNull();
+      while (player(controller).finishTimeMs === null) {
+        controller.submit(solve(player(controller).challenge!.prompt));
+        advance(200);
+      }
+      if (skip) {
+        expect(controller.getState().snapshot.phase).toBe('racing');
+        return controller.finishNow()!.results;
+      }
+      while (controller.getState().snapshot.phase !== 'finished') advance(1000);
+      return controller.getState().snapshot.results;
+    };
+    const waited = run(false);
+    const skipped = run(true);
+    expect(skipped).not.toBeNull();
+    expect(skipped).toEqual(waited);
+  });
+
   it('useRaceController pausa al ocultar la pestaña', () => {
     const { controller, advance } = setup();
     let visibility: DocumentVisibilityState = 'visible';

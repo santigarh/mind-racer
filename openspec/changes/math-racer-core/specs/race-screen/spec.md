@@ -63,6 +63,17 @@ Cuando el jugador cruza la meta antes del fin de la carrera, la pantalla SHALL o
 - **WHEN** el jugador cruza la meta y aún hay bots corriendo
 - **THEN** se muestra su posición final y la pista sigue animándose hasta el final de la carrera
 
+### Requirement: Ver resultados sin esperar
+Cuando el jugador ya cruzó la meta en una carrera local y aún hay bots corriendo, la pantalla SHALL ofrecer un botón "Ver resultados" que completa al instante el resto de la carrera con las mismas reglas y muestra la pantalla de resultados. La clasificación SHALL ser idéntica a la que se obtendría esperando.
+
+#### Scenario: Saltar la espera
+- **WHEN** el jugador terminó 2.º y pulsa "Ver resultados" mientras un bot sigue corriendo
+- **THEN** aparece de inmediato la pantalla de resultados con la clasificación final completa
+
+#### Scenario: Mismo resultado que esperando
+- **WHEN** dos carreras con la misma semilla y las mismas respuestas del jugador terminan, una esperando y otra con "Ver resultados"
+- **THEN** ambas clasificaciones son idénticas
+
 ### Requirement: Pantalla de resultados
 Al terminar la carrera la pantalla SHALL mostrar la clasificación completa, las estadísticas del jugador (posición, tiempo, aciertos, errores, precisión, respuestas correctas por minuto, nivel máximo alcanzado), récords y desbloqueos obtenidos, y opciones para correr de nuevo o volver al menú.
 

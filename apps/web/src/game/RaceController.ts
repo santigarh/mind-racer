@@ -140,6 +140,28 @@ export class RaceController {
     return outcome;
   }
 
+  /** True once the player crossed the line while bots are still racing. */
+  canFinishNow(): boolean {
+    const player = this.state.snapshot.runners.find((r) => r.id === PLAYER_ID);
+    return this.state.snapshot.phase === 'racing' && player?.finishTimeMs != null;
+  }
+
+  /**
+   * Runs the rest of the race instantly with the same rules. Bots only depend on the seed,
+   * so the final ranking is identical to waiting. Returns the final snapshot, or null if
+   * the player has not finished yet.
+   */
+  finishNow(): RaceSnapshot | null {
+    if (!this.canFinishNow()) return null;
+    this.holds.clear();
+    this.resumeRemainingMs = 0;
+    // The race always ends within timeLimit of racing start, which is before raceMs.
+    this.raceMs += this.session.race.config.timeLimitMs;
+    this.session.advanceTo(this.raceMs);
+    this.publish();
+    return this.state.snapshot;
+  }
+
   get playerId(): string {
     return PLAYER_ID;
   }

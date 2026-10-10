@@ -121,3 +121,7 @@
     line-height: 20px;
   }
 }
+
+.doneAction {
+  margin-top: var(--s-200);
+}

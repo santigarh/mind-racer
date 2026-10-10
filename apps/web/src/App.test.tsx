@@ -84,6 +84,27 @@ describe('App', () => {
     expect(seeds[1]).not.toBe(seeds[0]);
   });
 
+  it('"Ver resultados" aparece tras la llegada y muestra los resultados de inmediato', async () => {
+    withProfile();
+    const { advance, solve } = setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Correr en nivel 1' }));
+    advance(3000);
+    expect(screen.queryByRole('button', { name: /ver resultados/i })).not.toBeInTheDocument();
+    for (let i = 0; i < 4 && screen.queryByLabelText('Tu respuesta'); i++) {
+      fireEvent.change(screen.getByLabelText('Tu respuesta'), { target: { value: solve() } });
+      advance(32);
+    }
+    advance(2000);
+    expect(screen.getByText(/Esperando a los demás corredores/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /ver resultados/i }));
+    // Sin esperar el retraso de resultados: aparecen en el mismo paso.
+    expect(screen.getByRole('heading', { name: 'Ganaste la carrera' })).toBeInTheDocument();
+    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(4);
+    expect(JSON.parse(localStorage.getItem(PROFILE_KEY)!).stats['1'].races).toBe(1);
+  });
+
   it('Escape abre la confirmación; salir no cambia las estadísticas', async () => {
     const before = withProfile();
     const { advance, current } = setup();
