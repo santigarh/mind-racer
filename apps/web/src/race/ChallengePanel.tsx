@@ -5,6 +5,9 @@ import { Keypad } from './Keypad';
 import { useAnswerEntry } from './useAnswerEntry';
 import styles from './ChallengePanel.module.css';
 
+/** Prompts longer than this (levels 8–10) use a smaller size so they fit on phones. */
+const LONG_PROMPT = 10;
+
 interface ChallengePanelProps {
   challenge: PublicChallenge | null;
   lastAnswer: AnswerOutcome | null;
@@ -27,7 +30,13 @@ export function ChallengePanel({ challenge, lastAnswer, disabled, showKeypad, on
     <section className={styles.panel} aria-label="Desafío">
       <div className={styles.promptRow}>
         <span className={styles.level}>Nivel {challenge?.level ?? '·'}</span>
-        <p key={challenge?.seq} className={styles.prompt} aria-live="polite" data-testid="challenge-prompt">
+        <p
+          key={challenge?.seq}
+          className={styles.prompt}
+          aria-live="polite"
+          data-testid="challenge-prompt"
+          data-long={(challenge?.prompt.length ?? 0) > LONG_PROMPT}
+        >
           {challenge ? challenge.prompt : '·'}
         </p>
       </div>

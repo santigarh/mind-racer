@@ -18,7 +18,7 @@ const RECENT_CHALLENGES = 10;
 
 export interface RaceOptions {
   seed: number;
-  /** Level chosen for the race (1–10). */
+  /** Default level (1–10) for runners that do not choose their own. */
   level: number;
   runners: readonly RunnerSpec[];
   source: ChallengeSource;
@@ -28,6 +28,7 @@ export interface RaceOptions {
 interface Runner {
   spec: RunnerSpec;
   index: number;
+  chosenLevel: number;
   distance: number;
   /** Speed without nitro, m/s. */
   baseSpeed: number;
@@ -74,9 +75,11 @@ export class Race {
     if (options.runners.length === 0) throw new Error('A race needs at least one runner');
     this.runners = options.runners.map((spec, index) => {
       if (this.byId.has(spec.id)) throw new Error(`Duplicate runner id ${spec.id}`);
+      const difficulty = new DifficultyController(spec.level ?? options.level);
       const runner: Runner = {
-        spec: { ...spec },
+        spec: { ...spec, level: difficulty.baseLevel },
         index,
+        chosenLevel: difficulty.baseLevel,
         distance: 0,
         baseSpeed: 0,
         nitroUntilMs: -Infinity,
@@ -90,7 +93,7 @@ export class Race {
         recent: [],
         // Keyed by id, not lane, so adding or removing a runner never changes the others' challenges.
         rng: deriveRng(this.seed, 0, `challenges:${spec.id}`),
-        difficulty: new DifficultyController(options.level),
+        difficulty,
         answerSeq: 0,
         lastAnswer: null,
       };
@@ -133,9 +136,16 @@ export class Race {
 
   /**
    * Applies an answer at `atMs` (quantized to the last whole tick).
+   * `responseMs`, when given, replaces the response time measured on the race clock for the
+   * boost and the difficulty rules (e.g. a server discounting network latency).
    * Returns null when it is ignored (not racing, finished runner, unknown runner).
    */
-  submitAnswer(runnerId: string, input: string, atMs: number): AnswerOutcome | null {
+  submitAnswer(
+    runnerId: string,
+    input: string,
+    atMs: number,
+    options: { responseMs?: number } = {},
+  ): AnswerOutcome | null {
     this.advanceTo(atMs);
     const runner = this.byId.get(runnerId);
     if (!runner || this.phaseValue !== 'racing' || runner.finishTimeMs !== null || !runner.challenge) {
@@ -143,7 +153,7 @@ export class Race {
     }
     const challenge = runner.challenge;
     const at = this.simMs;
-    const responseMs = Math.max(1, at - runner.issuedAtMs);
+    const responseMs = Math.max(1, options.responseMs ?? at - runner.issuedAtMs);
     const correct = this.source.check(challenge, input);
     let nitro = false;
 
@@ -280,6 +290,7 @@ export class Race {
       name: r.spec.name,
       kind: r.spec.kind,
       position,
+      chosenLevel: r.chosenLevel,
       finished: r.finishTimeMs !== null,
       finishTimeMs: r.finishTimeMs,
       distance: r.distance,
@@ -305,6 +316,7 @@ export class Race {
     return {
       ...r.spec,
       index: r.index,
+      chosenLevel: r.chosenLevel,
       distance: r.distance,
       speed: r.baseSpeed + (nitroActive ? this.config.nitroExtraSpeedFactor * this.config.maxSpeed : 0),
       streak: r.streak,

@@ -1,0 +1,143 @@
+import { describe, expect, it } from 'vitest';
+import { NetClient, RECONNECT_DELAYS_MS, SESSION_KEY, serverUrl } from './NetClient';
+import { fakeNetwork } from './fakeSocket';
+import type { ServerMessage } from '@mind-racer/protocol';
+
+function setup() {
+  const net = fakeNetwork();
+  const client = new NetClient({
+    url: 'ws://casa:8787',
+    createSocket: net.createSocket,
+    storage: sessionStorage,
+    setTimer: net.setTimer,
+    clearTimer: net.clearTimer,
+  });
+  const received: ServerMessage[] = [];
+  const statuses: string[] = [];
+  client.onMessage((m) => received.push(m));
+  client.onStatus((s) => statuses.push(s));
+  return { net, client, received, statuses };
+}
+
+const joined: ServerMessage = { type: 'joined', code: 'K7QF', playerId: 'p2', token: 'secreto' };
+
+describe('URL del servidor', () => {
+  it('usa VITE_SERVER_URL si está definida', () => {
+    expect(serverUrl('ws://otro:9000', { hostname: 'casa', protocol: 'http:' })).toBe('ws://otro:9000');
+  });
+
+  it('por defecto, el mismo host que sirvió la página en el puerto 8787', () => {
+    expect(serverUrl(undefined, { hostname: '192.168.1.20', protocol: 'http:' })).toBe('ws://192.168.1.20:8787');
+    expect(serverUrl(undefined, { hostname: 'juego.example', protocol: 'https:' })).toBe('wss://juego.example:8787');
+  });
+});
+
+describe('NetClient', () => {
+  it('encola mensajes hasta que abre la conexión', () => {
+    const { net, client, statuses } = setup();
+    client.connect();
+    client.send({ type: 'create', name: 'Ana', level: 3 });
+    expect(net.socket.sent).toEqual([]);
+    net.socket.open();
+    expect(net.socket.sent).toEqual([{ type: 'create', name: 'Ana', level: 3 }]);
+    expect(statuses).toEqual(['connecting', 'open']);
+  });
+
+  it('valida los mensajes del servidor y descarta los inválidos', () => {
+    const { net, client, received } = setup();
+    client.connect();
+    net.socket.open();
+    net.socket.onmessage?.({ data: '{"type":"room"}' });
+    net.socket.onmessage?.({ data: 'basura' });
+    net.socket.receive(joined);
+    expect(received).toEqual([joined]);
+  });
+
+  it('responde los ping sin molestar a la app', () => {
+    const { net, client, received } = setup();
+    client.connect();
+    net.socket.open();
+    net.socket.receive({ type: 'ping', id: 9 });
+    expect(net.socket.sent).toEqual([{ type: 'pong', id: 9 }]);
+    expect(received).toEqual([]);
+  });
+
+  it('guarda la sesión en sessionStorage al unirse', () => {
+    const { net, client } = setup();
+    client.connect();
+    net.socket.open();
+    net.socket.receive(joined);
+    expect(JSON.parse(sessionStorage.getItem(SESSION_KEY)!)).toEqual({ code: 'K7QF', token: 'secreto' });
+    expect(client.storedSession()).toEqual({ code: 'K7QF', token: 'secreto' });
+  });
+
+  it('reconecta con espera creciente y vuelve a la sala con rejoin', () => {
+    const { net, client, statuses } = setup();
+    client.connect();
+    net.socket.open();
+    net.socket.receive(joined);
+
+    net.socket.drop();
+    expect(client.status).toBe('reconnecting');
+    for (const delay of RECONNECT_DELAYS_MS.slice(0, 3)) {
+      expect(net.timers[0]!.ms).toBe(delay);
+      net.runTimer();
+      net.socket.drop(); // falla de nuevo
+    }
+    expect(net.timers[0]!.ms).toBe(RECONNECT_DELAYS_MS[3]);
+    net.runTimer();
+    net.socket.open();
+    expect(net.socket.sent[0]).toEqual({ type: 'rejoin', code: 'K7QF', token: 'secreto' });
+    expect(client.status).toBe('open');
+    expect(statuses.at(-1)).toBe('open');
+    // Tras reconectar, el contador de esperas vuelve a empezar.
+    net.socket.drop();
+    expect(net.timers.at(-1)!.ms).toBe(RECONNECT_DELAYS_MS[0]);
+  });
+
+  it('la espera nunca pasa de 5 s', () => {
+    const { net, client } = setup();
+    client.connect();
+    for (let i = 0; i < 8; i++) {
+      net.socket.drop();
+      net.runTimer();
+    }
+    net.socket.drop();
+    expect(net.timers[0]!.ms).toBe(5000);
+  });
+
+  it('si el servidor rechaza el rejoin, olvida la sesión', () => {
+    const { net, client } = setup();
+    client.connect();
+    net.socket.open();
+    net.socket.receive(joined);
+    net.socket.receive({ type: 'error', code: 'rejoin-failed', message: 'No pudimos volver a la sala' });
+    expect(client.storedSession()).toBeNull();
+  });
+
+  it('close() no reconecta', () => {
+    const { net, client } = setup();
+    client.connect();
+    net.socket.open();
+    client.close();
+    expect(client.status).toBe('closed');
+    expect(net.timers).toHaveLength(0);
+    client.connect();
+    expect(net.sockets).toHaveLength(1);
+  });
+});
+
+describe('MultiplayerSession.resume', () => {
+  it('envía un solo rejoin aunque se llame dos veces', async () => {
+    const { MultiplayerSession } = await import('./MultiplayerSession');
+    const net = fakeNetwork();
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ code: 'K7QF', token: 't' }));
+    const session = new MultiplayerSession({
+      client: new NetClient({ url: 'ws://x', createSocket: net.createSocket, storage: sessionStorage, setTimer: net.setTimer, clearTimer: net.clearTimer }),
+    });
+    session.resume();
+    session.resume();
+    net.socket.open();
+    expect(net.socket.sent).toEqual([{ type: 'rejoin', code: 'K7QF', token: 't' }]);
+  });
+});

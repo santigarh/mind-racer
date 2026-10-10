@@ -153,3 +153,63 @@ describe('dificultad adaptativa en el motor', () => {
     expect(race.snapshot().results![0]!.maxLevel).toBe(6);
   });
 });
+
+describe('nivel elegido por corredor', () => {
+  const echoSource: ChallengeSource = {
+    next: (level, rng) => ({ key: String(rng.next()), level, prompt: `nivel ${level}`, answer: '1', targetTimeMs: 2000 }),
+    check: (_, input) => input === '1',
+  };
+  const COUNTDOWN = DEFAULT_RACE_CONFIG.countdownMs;
+
+  function mixedRace() {
+    const race = new Race({
+      seed: 9,
+      level: 5,
+      runners: [
+        { id: 'papa', name: 'Papá', kind: 'human', level: 8 },
+        { id: 'hija', name: 'Hija', kind: 'human', level: 2 },
+        { id: 'bot', name: 'Bot', kind: 'bot' },
+      ],
+      source: echoSource,
+      config: { distance: 1e9, timeLimitMs: 120_000 },
+    });
+    race.start(0);
+    race.advanceTo(COUNTDOWN);
+    return race;
+  }
+  const byId = (race: Race, id: string) => race.snapshot().runners.find((r) => r.id === id)!;
+
+  it('corredores con niveles distintos: cada primer desafío es de su nivel', () => {
+    const race = mixedRace();
+    expect(byId(race, 'papa').challenge!.level).toBe(8);
+    expect(byId(race, 'hija').challenge!.level).toBe(2);
+    // Sin nivel propio, el corredor usa el nivel de la carrera.
+    expect(byId(race, 'bot').challenge!.level).toBe(5);
+    expect(byId(race, 'bot').chosenLevel).toBe(5);
+  });
+
+  it('rangos independientes: 7–10 para nivel 8 y 1–4 para nivel 2', () => {
+    const race = mixedRace();
+    const seen: Record<string, Set<number>> = { papa: new Set(), hija: new Set() };
+    let t = COUNTDOWN;
+    for (let i = 0; i < 200; i++) {
+      for (const id of ['papa', 'hija'] as const) {
+        t += 10;
+        // Rachas rápidas para subir y errores para bajar: recorre todo el rango.
+        race.submitAnswer(id, i % 20 < 12 ? '1' : '0', t);
+        seen[id]!.add(byId(race, id).challenge!.level);
+      }
+    }
+    expect(Math.min(...seen.papa!)).toBe(7);
+    expect(Math.max(...seen.papa!)).toBe(10);
+    expect(Math.min(...seen.hija!)).toBe(1);
+    expect(Math.max(...seen.hija!)).toBe(4);
+  });
+
+  it('la clasificación informa el nivel elegido de cada corredor', () => {
+    const race = mixedRace();
+    race.advanceTo(COUNTDOWN + 120_000);
+    const levels = Object.fromEntries(race.snapshot().results!.map((r) => [r.id, r.chosenLevel]));
+    expect(levels).toEqual({ papa: 8, hija: 2, bot: 5 });
+  });
+});

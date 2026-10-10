@@ -1,30 +1,45 @@
 import { useCallback, useState } from 'react';
 import { randomSeed, type RaceSnapshot } from '@mind-racer/engine';
-import { RaceController, type RaceControllerOptions } from './game/RaceController';
+import { LocalRaceController, type LocalRaceControllerOptions } from './game/LocalRaceController';
 import { applyRaceResult, type Profile, type ProgressUpdate } from './progress/profile';
 import { loadProfile, saveProfile } from './progress/storage';
 import { RaceScreen } from './race/RaceScreen';
 import { Menu } from './screens/Menu';
 import { Onboarding } from './screens/Onboarding';
 import { Results } from './screens/Results';
+import { MultiplayerApp } from './multiplayer/MultiplayerApp';
+import { MultiplayerSession } from './net/MultiplayerSession';
 
 type Screen =
   | { name: 'onboarding' }
   | { name: 'menu' }
-  | { name: 'race'; controller: RaceController }
-  | { name: 'results'; controller: RaceController; snapshot: RaceSnapshot; update: ProgressUpdate };
+  | { name: 'multiplayer'; session: MultiplayerSession }
+  | { name: 'race'; controller: LocalRaceController }
+  | { name: 'results'; controller: LocalRaceController; snapshot: RaceSnapshot; update: ProgressUpdate };
 
 export interface AppProps {
   /** Injectable for tests (fake clock, tiny races). */
-  createController?: (options: RaceControllerOptions) => RaceController;
+  createController?: (options: LocalRaceControllerOptions) => LocalRaceController;
   makeSeed?: () => number;
+  createMultiplayerSession?: () => MultiplayerSession;
 }
 
-const defaultCreateController = (options: RaceControllerOptions) => new RaceController(options);
+const defaultCreateController = (options: LocalRaceControllerOptions) => new LocalRaceController(options);
 
-export function App({ createController = defaultCreateController, makeSeed = randomSeed }: AppProps) {
+export function App({
+  createController = defaultCreateController,
+  makeSeed = randomSeed,
+  createMultiplayerSession = () => new MultiplayerSession(),
+}: AppProps) {
   const [profile, setProfile] = useState<Profile | null>(() => loadProfile());
-  const [screen, setScreen] = useState<Screen>(() => (profile ? { name: 'menu' } : { name: 'onboarding' }));
+  const [screen, setScreen] = useState<Screen>(() => {
+    if (!profile) return { name: 'onboarding' };
+    // A reload while in a room goes straight back to it.
+    const session = createMultiplayerSession();
+    if (session.canResume()) return { name: 'multiplayer', session };
+    session.dispose();
+    return { name: 'menu' };
+  });
   const [lastLevel, setLastLevel] = useState<number | undefined>(undefined);
 
   const startRace = useCallback(
@@ -91,5 +106,26 @@ export function App({ createController = defaultCreateController, makeSeed = ran
     );
   }
 
-  return <Menu profile={profile} initialLevel={lastLevel} onStart={startRace} />;
+  if (screen.name === 'multiplayer') {
+    return (
+      <MultiplayerApp
+        session={screen.session}
+        profile={profile}
+        onProfile={(updated) => {
+          saveProfile(updated);
+          setProfile(updated);
+        }}
+        onExit={() => setScreen({ name: 'menu' })}
+      />
+    );
+  }
+
+  return (
+    <Menu
+      profile={profile}
+      initialLevel={lastLevel}
+      onStart={startRace}
+      onMultiplayer={() => setScreen({ name: 'multiplayer', session: createMultiplayerSession() })}
+    />
+  );
 }

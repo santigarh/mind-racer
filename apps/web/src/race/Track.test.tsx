@@ -8,6 +8,7 @@ const runner = (id: string, distance: number, position: number, extra: Partial<R
   name: id === 'player' ? 'Ana' : `Bot ${id}`,
   kind: id === 'player' ? 'human' : 'bot',
   index: 0,
+  chosenLevel: 1,
   distance,
   speed: 0,
   streak: 0,

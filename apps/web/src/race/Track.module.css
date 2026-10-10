@@ -39,6 +39,32 @@
   text-overflow: ellipsis;
 }
 
+.runnerName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.level {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-muted);
+}
+
+.away {
+  flex: none;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--err);
+}
+
+.lane[data-away='true'] .car {
+  opacity: 0.45;
+}
+
 .position {
   flex: none;
   width: 32px;

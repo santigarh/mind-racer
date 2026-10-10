@@ -19,6 +19,18 @@
   font-weight: 600;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-200);
+}
+
+@media (max-width: 520px) {
+  .pilot {
+    display: none;
+  }
+}
+
 .pilot {
   font-size: 14px;
   line-height: 20px;

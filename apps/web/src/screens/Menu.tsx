@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CarProfile, FlagCheckered, Lock, Timer, Trophy, Gauge, Target } from '@phosphor-icons/react';
+import { CarProfile, FlagCheckered, Lock, Timer, Trophy, Gauge, Target, UsersThree } from '@phosphor-icons/react';
 import { MATH_LEVELS, getLevelDefinition } from '@mind-racer/engine';
 import { Button } from '../ui/Button';
 import { formatDecimal, formatPercent, formatTime } from '../ui/format';
@@ -10,9 +10,11 @@ interface MenuProps {
   profile: Profile;
   initialLevel?: number;
   onStart: (level: number) => void;
+  /** Opens "Jugar con amigos". */
+  onMultiplayer?: () => void;
 }
 
-export function Menu({ profile, initialLevel, onStart }: MenuProps) {
+export function Menu({ profile, initialLevel, onStart, onMultiplayer }: MenuProps) {
   const [level, setLevel] = useState(() =>
     initialLevel && isLevelUnlocked(profile, initialLevel) ? initialLevel : profile.unlockedLevel,
   );
@@ -26,7 +28,15 @@ export function Menu({ profile, initialLevel, onStart }: MenuProps) {
           <CarProfile size={24} weight="fill" aria-hidden />
           <span>Mind Racer</span>
         </div>
-        <span className={styles.pilot}>Piloto: {profile.name}</span>
+        <div className={styles.headerActions}>
+          <span className={styles.pilot}>Piloto: {profile.name}</span>
+          {onMultiplayer && (
+            <Button variant="secondary" size="small" onClick={onMultiplayer}>
+              <UsersThree size={18} aria-hidden />
+              Jugar con amigos
+            </Button>
+          )}
+        </div>
       </header>
 
       <section className={styles.hero} aria-labelledby="menu-title">

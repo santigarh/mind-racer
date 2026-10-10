@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChartBar, FlagCheckered, SignOut } from '@phosphor-icons/react';
+import { ChartBar, FlagCheckered, SignOut, WifiSlash } from '@phosphor-icons/react';
 import type { RaceSnapshot } from '@mind-racer/engine';
-import type { RaceController } from '../game/RaceController';
+import type { RaceViewSource } from '../game/RaceViewSource';
 import { useRaceController } from '../game/useRaceController';
 import { Button } from '../ui/Button';
 import { formatTime, ordinal } from '../ui/format';
@@ -14,11 +14,9 @@ import styles from './RaceScreen.module.css';
 
 const EXIT_DIALOG = 'exit-dialog';
 const GO_SIGNAL_MS = 800;
-/** Lets the final positions sink in before showing results. */
-export const RESULTS_DELAY_MS = 1500;
 
 interface RaceScreenProps {
-  controller: RaceController;
+  controller: RaceViewSource;
   onFinish: (snapshot: RaceSnapshot) => void;
   onAbandon: () => void;
 }
@@ -30,6 +28,7 @@ export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps)
   const [confirmExit, setConfirmExit] = useState(false);
   const player = snapshot.runners.find((r) => r.id === controller.playerId)!;
   const finished = snapshot.phase === 'finished';
+  const online = controller.mode === 'network';
 
   const openExit = useCallback(() => {
     if (finished) return;
@@ -58,7 +57,7 @@ export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps)
   useEffect(() => {
     if (!finished) return;
     const final = controller.getState().snapshot;
-    const timer = setTimeout(() => onFinishRef.current(final), RESULTS_DELAY_MS);
+    const timer = setTimeout(() => onFinishRef.current(final), controller.resultsDelayMs);
     return () => clearTimeout(timer);
   }, [finished, controller]);
 
@@ -90,6 +89,13 @@ export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps)
         </Button>
       </header>
 
+      {state.reconnecting && (
+        <p className={styles.reconnecting} role="status">
+          <WifiSlash size={18} aria-hidden />
+          Reconectando…
+        </p>
+      )}
+
       <Hud player={player} runnerCount={snapshot.runners.length} elapsedMs={snapshot.elapsedMs} />
 
       <div className={styles.arena}>
@@ -98,6 +104,8 @@ export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps)
           distance={snapshot.distance}
           playerId={controller.playerId}
           botProfiles={state.botProfiles}
+          showLevels={online}
+          presence={state.presence}
         />
         {overlay}
       </div>
@@ -109,7 +117,7 @@ export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps)
             Llegaste {ordinal(player.position)} en {formatTime(player.finishTimeMs!)}
           </p>
           <p className={styles.doneHint}>{finished ? 'Carrera terminada' : 'Esperando a los demás corredores'}</p>
-          {!finished && (
+          {!finished && controller.canFinishNow() && (
             <Button
               className={styles.doneAction}
               onClick={() => {
@@ -139,10 +147,14 @@ export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps)
             <h2 id="exit-title" className={styles.dialogTitle}>
               ¿Salir de la carrera?
             </h2>
-            <p className={styles.dialogText}>Esta carrera no contará para tus estadísticas ni desbloqueos.</p>
+            <p className={styles.dialogText}>
+              {online
+                ? 'Tu auto quedará detenido y esta carrera no contará para tus estadísticas ni desbloqueos.'
+                : 'Esta carrera no contará para tus estadísticas ni desbloqueos.'}
+            </p>
             <div className={styles.dialogActions}>
               <Button variant="secondary" onClick={onAbandon}>
-                Salir al menú
+                {online ? 'Volver a la sala' : 'Salir al menú'}
               </Button>
               <Button onClick={keepRacing} autoFocus>
                 Seguir corriendo

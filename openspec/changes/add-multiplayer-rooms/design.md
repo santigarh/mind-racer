@@ -45,13 +45,17 @@ Mensajes JSON por WebSocket, unión discriminada por `type`, validados con `zod`
 | `create { name, level }` | `joined { roomCode, playerId, token, room }` |
 | `join { code, name, level }` | `room { players[], hostId, phase, waiting[] }` |
 | `rejoin { code, token }` | `error { code, message }` |
-| `setLevel { level }` | `raceStart { seed, startsAt, runners[] }` |
+| `setLevel { level }` | `raceStart { seed, distance, runners[] }` |
 | `start {}` (solo anfitrión) | `state { t, phase, runners[] }` (20 Hz) |
-| `answer { seq, input }` | `answer { correct, expected, nitro, challenge }` |
+| `answer { seq, input }` | `answer { outcome, challenge }` |
+| `abandon {}` (vuelve al lobby) | `challenge { challenge }` (al empezar y al reconectar) |
+| `backToRoom {}` (de resultados al lobby) | |
 | `pong { id }` | `ping { id }` cada 2 s |
 | `leave {}` | `results { results[] }` |
 
 - `challenge` viaja como `PublicChallenge` (sin respuesta). `expected` solo se envía tras responder, para la retroalimentación "Era 56".
+- Cada corredor de `state` y `results` lleva `presence`: `connected`, `disconnected` (puede volver dentro de 30 s) o `left` (abandonó o salió de la sala). Un booleano no distinguía "desconectado" de "se fue", y la spec los trata distinto.
+- El estado de cada persona en `room` (`lobby`, `racing`, `results`, `waiting`) decide qué pantalla muestra el cliente. Quien sigue mirando resultados no entra en la revancha hasta enviar `backToRoom`.
 - Límite de 4 KB por mensaje y 20 respuestas por segundo por jugador; si se excede, el mensaje se descarta y se responde `error`.
 - *Alternativa:* Socket.IO. Se descarta por peso y porque no necesitamos sus fallbacks; `ws` + un cliente `WebSocket` nativo alcanza.
 - *Alternativa:* validación manual (como `progress/storage.ts`). Con ~12 mensajes, `zod` reduce código y errores; es una sola dependencia compartida.
@@ -81,11 +85,13 @@ En cada tick: si cada persona llegó, abandonó o lleva más de 30 s desconectad
 - Al cerrarse el socket, la persona queda `disconnected` con marca de tiempo; su corredor sigue en el motor sin responder y frena solo.
 - Con `rejoin` dentro de 30 s se reasocia la conexión y se le envían `raceStart`, el `state` actual y su desafío vigente. Pasados 30 s, en el lobby se la quita de la sala y en una carrera queda como "desconectado" en la clasificación.
 - El cliente reintenta con espera creciente (0,5 s, 1 s, 2 s… hasta 5 s) y muestra "Reconectando…".
+- Un `rejoin` repetido a la misma sala por la misma conexión solo vuelve a sincronizar; nunca saca primero al jugador de la sala. Lo detectó la prueba manual: al recargar con React StrictMode se enviaban dos `rejoin` y el segundo sacaba a la persona de su propia carrera. Además, el cliente envía `resume` una sola vez.
 
 ### D9. Cliente web
 - `RaceController` se convierte en una interfaz (`RaceViewSource`: `subscribe`, `getState`, `submit`, `playerId`, `hold`/`release`, `canFinishNow`/`finishNow`) con dos implementaciones: `LocalRaceController` (la actual) y `NetworkRaceController`. En red, `hold`/`release` no pausan, y `canFinishNow` es siempre falso porque el fin lo decide el servidor.
+- `MultiplayerSession` agrupa la conexión, la sala y la carrera actual en un store para React. `MultiplayerApp` elige la pantalla según el estado del jugador en `room` y aplica el progreso apenas llegan los `results`, sin depender de que la pantalla de carrera siga montada, porque el `room` siguiente puede desmontarla antes.
 - `NetworkRaceController` mantiene el último `state` y, entre mensajes, estima la posición de cada auto con su velocidad y el mismo decaimiento del motor (`DEFAULT_RACE_CONFIG`). Al recibir un `state` nuevo corrige suavemente en unos 100 ms para evitar saltos.
-- `RaceScreen` muestra el nivel elegido junto al nombre en multijugador y un indicador "Reconectando…". La pausa por visibilidad solo se activa si el controlador la admite.
+- `RaceScreen` muestra el nivel elegido junto al nombre en multijugador y un indicador "Reconectando…". Las demás personas tienen su propia paleta de colores de carril, asignada por id para que la pista y los resultados coincidan. La pausa por visibilidad solo se activa si el controlador la admite.
 - Pantallas nuevas: botón "Jugar con amigos" en el menú → "Crear sala" o "Unirse" (campo de código) → `Lobby` → `RaceScreen` → `Results` con "Volver a la sala".
 - La URL del servidor sale de `import.meta.env.VITE_SERVER_URL`, o por defecto `ws://<hostname de la página>:8787`. Así, quien abre `http://192.168.1.20:5173` en el celular se conecta solo al servidor de la misma PC.
 - El progreso se aplica en el cliente con `applyRaceResult` y el nivel elegido, igual que en local.

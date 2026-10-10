@@ -175,3 +175,17 @@
     line-height: 24px;
   }
 }
+
+/* Long prompts (levels 8–10): smaller, and allowed to wrap on narrow screens. */
+.prompt[data-long='true'] {
+  font-size: 48px;
+}
+
+@media (max-width: 640px) {
+  .prompt[data-long='true'] {
+    font-size: 30px;
+    line-height: 36px;
+    white-space: normal;
+    text-wrap: balance;
+  }
+}

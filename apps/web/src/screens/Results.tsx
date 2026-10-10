@@ -1,10 +1,11 @@
 import type { CSSProperties } from 'react';
-import { ArrowCounterClockwise, House, LockOpen, Star } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, House, LockOpen, SignOut, Star, UsersThree } from '@phosphor-icons/react';
 import type { BotProfileId, RaceSnapshot } from '@mind-racer/engine';
+import type { Presence } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
 import { formatDecimal, formatPercent, formatTime, ordinal } from '../ui/format';
 import type { ProgressUpdate } from '../progress/profile';
-import { laneColor } from '../race/Track';
+import { PRESENCE_TEXT, laneColor } from '../race/Track';
 import styles from './Results.module.css';
 
 interface ResultsProps {
@@ -12,11 +13,24 @@ interface ResultsProps {
   playerId: string;
   botProfiles: Readonly<Record<string, BotProfileId>>;
   update: ProgressUpdate;
+  /** Local: "Correr de nuevo". Online: "Volver a la sala". */
   onPlayAgain: () => void;
+  /** Local: "Volver al menú". Online: "Salir de la sala". */
   onMenu: () => void;
+  online?: boolean;
+  presence?: Readonly<Record<string, Presence>>;
 }
 
-export function Results({ snapshot, playerId, botProfiles, update, onPlayAgain, onMenu }: ResultsProps) {
+export function Results({
+  snapshot,
+  playerId,
+  botProfiles,
+  update,
+  onPlayAgain,
+  onMenu,
+  online = false,
+  presence = {},
+}: ResultsProps) {
   const results = snapshot.results ?? [];
   const me = results.find((r) => r.id === playerId)!;
   const headline = me.position === 1 ? 'Ganaste la carrera' : `Terminaste ${ordinal(me.position)}`;
@@ -75,6 +89,7 @@ export function Results({ snapshot, playerId, botProfiles, update, onPlayAgain, 
             <tr>
               <th scope="col">Pos.</th>
               <th scope="col">Corredor</th>
+              {online && <th scope="col">Nivel</th>}
               <th scope="col">Tiempo</th>
               <th scope="col" className={styles.optional}>
                 Aciertos
@@ -89,10 +104,16 @@ export function Results({ snapshot, playerId, botProfiles, update, onPlayAgain, 
               <tr
                 key={r.id}
                 data-player={r.id === playerId}
-                style={{ '--lane-color': laneColor(r.id, playerId, botProfiles) } as CSSProperties}
+                style={{ '--lane-color': laneColor(r.id, playerId, botProfiles, results.map((x) => x.id)) } as CSSProperties}
               >
                 <td className={styles.pos}>{ordinal(r.position)}</td>
-                <td>{r.name}</td>
+                <td>
+                  {r.name}
+                  {presence[r.id] && PRESENCE_TEXT[presence[r.id]!] && (
+                    <span className={styles.away}> · {PRESENCE_TEXT[presence[r.id]!]}</span>
+                  )}
+                </td>
+                {online && <td className={styles.num}>N{r.chosenLevel}</td>}
                 <td className={styles.num}>
                   {r.finishTimeMs === null ? `${Math.round(r.distance)} m` : formatTime(r.finishTimeMs)}
                 </td>
@@ -106,12 +127,16 @@ export function Results({ snapshot, playerId, botProfiles, update, onPlayAgain, 
 
       <div className={styles.actions}>
         <Button variant="secondary" size="large" onClick={onMenu}>
-          <House size={20} aria-hidden />
-          Volver al menú
+          {online ? <SignOut size={20} aria-hidden /> : <House size={20} aria-hidden />}
+          {online ? 'Salir de la sala' : 'Volver al menú'}
         </Button>
         <Button size="large" onClick={onPlayAgain} autoFocus>
-          <ArrowCounterClockwise size={20} weight="bold" aria-hidden />
-          Correr de nuevo
+          {online ? (
+            <UsersThree size={20} weight="bold" aria-hidden />
+          ) : (
+            <ArrowCounterClockwise size={20} weight="bold" aria-hidden />
+          )}
+          {online ? 'Volver a la sala' : 'Correr de nuevo'}
         </Button>
       </div>
     </main>

@@ -292,3 +292,57 @@ describe('determinismo e independencia de variante', () => {
     expect(pub.prompt).toBe(full.prompt);
   });
 });
+
+describe('tiempo de respuesta informado', () => {
+  it('tiempo compensado: el impulso usa el responseMs informado y se aplica al llegar', () => {
+    const informed = racing({ level: 3 });
+    // Llega 2,1 s después de emitido pero se informa 2,0 s.
+    informed.submitAnswer('r0', 'ok', COUNTDOWN + 2100, { responseMs: 2000 });
+    const exact = racing({ level: 3 });
+    exact.submitAnswer('r0', 'ok', COUNTDOWN + 2000);
+    expect(runner(informed).speed).toBeCloseTo(runner(exact).speed, 9);
+    expect(runner(informed).lastAnswer!.atMs).toBe(2100);
+    expect(informed.nowMs).toBe(COUNTDOWN + 2100);
+  });
+
+  it('sin tiempo informado usa el reloj del motor', () => {
+    const a = racing({ level: 3 });
+    a.submitAnswer('r0', 'ok', COUNTDOWN + 2100);
+    const b = racing({ level: 3 });
+    b.submitAnswer('r0', 'ok', COUNTDOWN + 2100, {});
+    expect(runner(a).speed).toBe(runner(b).speed);
+    const c = racing({ level: 3 });
+    c.submitAnswer('r0', 'ok', COUNTDOWN + 2100, { responseMs: 2000 });
+    expect(runner(c).speed).toBeGreaterThan(runner(a).speed);
+  });
+
+  it('el responseMs informado también decide la regla de respuesta rápida', () => {
+    // Objetivo de nivel 3 en wordSource: 3000 ms. Llegan a los 3,2 s pero se informan 2,9 s.
+    const race = racing({ level: 3 });
+    for (let i = 1; i <= 3; i++) race.submitAnswer('r0', 'ok', COUNTDOWN + i * 3200, { responseMs: 2900 });
+    expect(runner(race).challenge!.level).toBe(4);
+  });
+
+  it('un responseMs de 0 o negativo se acota al mínimo', () => {
+    const race = racing({ level: 3 });
+    race.submitAnswer('r0', 'ok', COUNTDOWN + 1000, { responseMs: -50 });
+    expect(runner(race).speed).toBeCloseTo(DEFAULT_RACE_CONFIG.boostPerTargetSecond * 3 * DEFAULT_RACE_CONFIG.quicknessMax, 9);
+  });
+
+  it('determinismo con responseMs en los eventos', () => {
+    const replay = () => {
+      const race = new Race({ seed: 12, level: 4, runners: runners(2), source: mathChallengeSource });
+      race.start(0);
+      for (let i = 0; i < 120; i++) {
+        const id = `r${i % 2}`;
+        const at = COUNTDOWN + 300 + i * 410;
+        race.advanceTo(at);
+        const challenge = race.peekChallenge(id);
+        if (challenge) race.submitAnswer(id, challenge.answer, at, { responseMs: 350 + (i % 5) * 90 });
+      }
+      race.advanceTo(COUNTDOWN + DEFAULT_RACE_CONFIG.timeLimitMs);
+      return race.snapshot();
+    };
+    expect(replay()).toEqual(replay());
+  });
+});

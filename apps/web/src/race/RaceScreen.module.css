@@ -20,6 +20,17 @@
   color: var(--text-muted);
 }
 
+.reconnecting {
+  display: flex;
+  align-items: center;
+  gap: var(--s-75);
+  padding: var(--s-75) var(--s-200);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-xl);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .arena {
   position: relative;
   border-radius: var(--r-3xl);

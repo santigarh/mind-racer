@@ -37,6 +37,8 @@ export interface RunnerSpec {
   id: string;
   name: string;
   kind: RunnerKind;
+  /** Level chosen by this runner (1–10). Defaults to the race level. */
+  level?: number;
 }
 
 export interface AnswerOutcome {
@@ -51,6 +53,8 @@ export interface AnswerOutcome {
 
 export interface RunnerState extends RunnerSpec {
   index: number;
+  /** Level this runner chose; adaptation moves around it. */
+  chosenLevel: number;
   distance: number;
   /** Effective speed including nitro, m/s. */
   speed: number;
@@ -74,6 +78,8 @@ export interface RunnerResult {
   name: string;
   kind: RunnerKind;
   position: number;
+  /** Level this runner chose. */
+  chosenLevel: number;
   finished: boolean;
   finishTimeMs: number | null;
   distance: number;

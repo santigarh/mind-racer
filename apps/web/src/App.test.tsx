@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { RaceConfig } from '@mind-racer/engine';
 import { App } from './App';
-import { RaceController, type RaceControllerOptions } from './game/RaceController';
+import { LocalRaceController, type LocalRaceControllerOptions } from './game/LocalRaceController';
 import { createProfile } from './progress/profile';
 import { PROFILE_KEY, saveProfile } from './progress/storage';
 
@@ -11,11 +11,11 @@ import { PROFILE_KEY, saveProfile } from './progress/storage';
 function setup(config: Partial<RaceConfig> = { distance: 40 }) {
   let wall = 0;
   let nextSeed = 100;
-  const controllers: RaceController[] = [];
+  const controllers: LocalRaceController[] = [];
   const seeds: number[] = [];
-  const createController = (options: RaceControllerOptions) => {
+  const createController = (options: LocalRaceControllerOptions) => {
     seeds.push(options.seed);
-    const controller = new RaceController({ ...options, config, now: () => wall, autoLoop: false });
+    const controller = new LocalRaceController({ ...options, config, now: () => wall, autoLoop: false });
     controllers.push(controller);
     return controller;
   };

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { RESUME_COUNTDOWN_MS, RaceController } from './RaceController';
+import { RESUME_COUNTDOWN_MS, LocalRaceController } from './LocalRaceController';
 import { useRaceController } from './useRaceController';
 
 function setup() {
   let wall = 1000;
-  const controller = new RaceController({ seed: 7, level: 1, playerName: 'Ana', now: () => wall, autoLoop: false });
+  const controller = new LocalRaceController({ seed: 7, level: 1, playerName: 'Ana', now: () => wall, autoLoop: false });
   const advance = (ms: number, step = 16) => {
     for (let t = 0; t < ms; t += step) {
       wall += Math.min(step, ms - t);
@@ -15,7 +15,7 @@ function setup() {
   return { controller, advance };
 }
 
-const player = (c: RaceController) => c.getState().snapshot.runners.find((r) => r.id === c.playerId)!;
+const player = (c: LocalRaceController) => c.getState().snapshot.runners.find((r) => r.id === c.playerId)!;
 const solve = (prompt: string) =>
   String(
     prompt
@@ -24,7 +24,7 @@ const solve = (prompt: string) =>
       .reduce((a, b) => a + b, 0),
   );
 
-describe('RaceController', () => {
+describe('LocalRaceController', () => {
   it('cuenta regresiva y luego carrera según el reloj', () => {
     const { controller, advance } = setup();
     controller.start();
@@ -98,7 +98,7 @@ describe('RaceController', () => {
     /** Same seed and player answers; one waits for the bots, the other skips. */
     const run = (skip: boolean) => {
       let wall = 0;
-      const controller = new RaceController({
+      const controller = new LocalRaceController({
         seed: 21,
         level: 1,
         playerName: 'Ana',

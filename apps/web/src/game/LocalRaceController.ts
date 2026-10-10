@@ -6,12 +6,13 @@ import {
   type RaceConfig,
   type RaceSnapshot,
 } from '@mind-racer/engine';
+import type { RaceViewSource, RaceViewState } from './RaceViewSource';
 
 export const RESUME_COUNTDOWN_MS = 3000;
 /** Caps one frame's progress so a stalled tab never jumps the race forward. */
 const MAX_FRAME_MS = 250;
 
-export interface RaceControllerOptions {
+export interface LocalRaceControllerOptions {
   seed: number;
   level: number;
   playerName: string;
@@ -22,22 +23,16 @@ export interface RaceControllerOptions {
   autoLoop?: boolean;
 }
 
-export interface RaceViewState {
-  snapshot: RaceSnapshot;
-  /** Race clock frozen (tab hidden, exit dialog, or resume countdown). */
-  paused: boolean;
-  /** Ms left of the resume countdown, 0 when not resuming. */
-  resumeRemainingMs: number;
-  botProfiles: Readonly<Record<string, BotProfileId>>;
-}
-
 type Listener = () => void;
+const NO_PRESENCE = Object.freeze({});
 
 /**
  * Glue between the engine and React: owns the race clock (which stops while paused),
  * drives the session every frame and publishes immutable view states.
  */
-export class RaceController {
+export class LocalRaceController implements RaceViewSource {
+  readonly mode = 'local' as const;
+  readonly resultsDelayMs = 1500;
   readonly seed: number;
   readonly level: number;
   private readonly session: LocalRaceSession;
@@ -54,7 +49,7 @@ export class RaceController {
   private disposed = false;
   private state: RaceViewState;
 
-  constructor(options: RaceControllerOptions) {
+  constructor(options: LocalRaceControllerOptions) {
     this.seed = options.seed;
     this.level = options.level;
     this.now = options.now ?? (() => performance.now());
@@ -195,6 +190,8 @@ export class RaceController {
       paused: this.isPaused(),
       resumeRemainingMs: this.resumeRemainingMs,
       botProfiles: this.botProfiles,
+      presence: NO_PRESENCE,
+      reconnecting: false,
     };
   }
 

@@ -6,14 +6,27 @@ import { deriveRng, hashSeed } from './rng';
 import type { AnswerOutcome, ChallengeSource, RaceSnapshot, RunnerSpec } from './types';
 
 export const PLAYER_ID = 'player';
-const DEFAULT_BOT_PROFILES: readonly BotProfileId[] = ['tortuga', 'crucero', 'turbo'];
+export const DEFAULT_BOT_PROFILES: readonly BotProfileId[] = ['tortuga', 'crucero', 'turbo'];
 
-export interface LocalRaceOptions {
+export interface HumanRunner {
+  id: string;
+  name: string;
+  /** Level this person chose; defaults to the session level. */
+  level?: number;
+}
+
+export interface BotRunner {
+  profile: BotProfileId;
+  /** Level for this bot; defaults to the session level. */
+  level?: number;
+}
+
+export interface RaceSessionOptions {
   seed: number;
+  /** Default level for runners without their own. */
   level: number;
-  /** Omit for bot-only races (simulations). */
-  playerName?: string;
-  bots?: readonly BotProfileId[];
+  humans: readonly HumanRunner[];
+  bots: readonly BotRunner[];
   source?: ChallengeSource;
   config?: Partial<RaceConfig>;
 }
@@ -23,28 +36,33 @@ interface BotSlot {
   pending: BotMove | null;
 }
 
-/** A race against local bots: owns the Race and feeds it bot answers in time order. */
-export class LocalRaceSession {
+/**
+ * A race with any mix of people and bots: owns the Race and feeds it bot answers in time order,
+ * interleaved with the people's answers. Used for local races and by the multiplayer server.
+ */
+export class RaceSession {
   readonly race: Race;
-  readonly hasPlayer: boolean;
+  readonly humanIds: readonly string[];
   private readonly bots: BotSlot[];
 
-  constructor(options: LocalRaceOptions) {
-    const profiles = options.bots ?? DEFAULT_BOT_PROFILES;
-    const names = pickBotNames(deriveRng(options.seed, -1, 'bot-names'), profiles.length);
-    const runners: RunnerSpec[] = [];
-    if (options.playerName !== undefined) {
-      runners.push({ id: PLAYER_ID, name: options.playerName, kind: 'human' });
-    }
-    const botSpecs = profiles.map((profile, i) => ({
-      id: `bot-${profile}-${i}`,
+  constructor(options: RaceSessionOptions) {
+    const names = pickBotNames(deriveRng(options.seed, -1, 'bot-names'), options.bots.length);
+    const runners: RunnerSpec[] = options.humans.map((h) => ({
+      id: h.id,
+      name: h.name,
+      kind: 'human',
+      ...(h.level !== undefined ? { level: h.level } : {}),
+    }));
+    const botSpecs = options.bots.map((bot, i) => ({
+      id: `bot-${bot.profile}-${i}`,
       name: names[i] ?? `Bot ${i + 1}`,
       kind: 'bot' as const,
-      profile,
+      profile: bot.profile,
+      ...(bot.level !== undefined ? { level: bot.level } : {}),
     }));
-    runners.push(...botSpecs.map(({ id, name, kind }) => ({ id, name, kind })));
+    runners.push(...botSpecs.map(({ profile: _profile, ...spec }) => spec));
 
-    this.hasPlayer = options.playerName !== undefined;
+    this.humanIds = options.humans.map((h) => h.id);
     this.race = new Race({
       seed: options.seed,
       level: options.level,
@@ -75,11 +93,25 @@ export class LocalRaceSession {
     race.advanceTo(nowMs);
   }
 
-  /** Submits the human player's answer at `atMs`. */
-  submit(input: string, atMs: number): AnswerOutcome | null {
-    if (!this.hasPlayer) return null;
+  /** Submits a person's answer at `atMs`, optionally with an externally measured response time. */
+  submit(runnerId: string, input: string, atMs: number, responseMs?: number): AnswerOutcome | null {
+    if (!this.humanIds.includes(runnerId)) return null;
     this.advanceTo(atMs);
-    return this.race.submitAnswer(PLAYER_ID, input, atMs);
+    return this.race.submitAnswer(runnerId, input, atMs, responseMs !== undefined ? { responseMs } : {});
+  }
+
+  /**
+   * Runs the rest of the race instantly with the same rules (bots keep answering, people who
+   * have not finished stop answering). Bots depend only on the seed, so for runners that are
+   * already done the ranking equals waiting. Returns the final snapshot.
+   */
+  finishNow(): RaceSnapshot {
+    const race = this.race;
+    if (race.phase === 'countdown' || race.phase === 'racing') {
+      // The race always ends within timeLimit of racing start.
+      this.advanceTo(race.racingStartAtMs + race.config.timeLimitMs);
+    }
+    return race.snapshot();
   }
 
   snapshot(): RaceSnapshot {
@@ -104,5 +136,60 @@ export class LocalRaceSession {
       if (!best || move.atMs < best.move.atMs) best = { slot, move };
     }
     return best;
+  }
+}
+
+export interface LocalRaceOptions {
+  seed: number;
+  level: number;
+  /** Omit for bot-only races (simulations). */
+  playerName?: string;
+  bots?: readonly BotProfileId[];
+  source?: ChallengeSource;
+  config?: Partial<RaceConfig>;
+}
+
+/** A single player against local bots, everyone at the chosen level. */
+export class LocalRaceSession {
+  readonly race: Race;
+  readonly hasPlayer: boolean;
+  private readonly session: RaceSession;
+
+  constructor(options: LocalRaceOptions) {
+    this.hasPlayer = options.playerName !== undefined;
+    this.session = new RaceSession({
+      seed: options.seed,
+      level: options.level,
+      humans: this.hasPlayer ? [{ id: PLAYER_ID, name: options.playerName! }] : [],
+      bots: (options.bots ?? DEFAULT_BOT_PROFILES).map((profile) => ({ profile })),
+      ...(options.source ? { source: options.source } : {}),
+      ...(options.config ? { config: options.config } : {}),
+    });
+    this.race = this.session.race;
+  }
+
+  start(atMs: number): void {
+    this.session.start(atMs);
+  }
+
+  advanceTo(nowMs: number): void {
+    this.session.advanceTo(nowMs);
+  }
+
+  /** Submits the human player's answer at `atMs`. */
+  submit(input: string, atMs: number): AnswerOutcome | null {
+    return this.session.submit(PLAYER_ID, input, atMs);
+  }
+
+  finishNow(): RaceSnapshot {
+    return this.session.finishNow();
+  }
+
+  snapshot(): RaceSnapshot {
+    return this.session.snapshot();
+  }
+
+  botProfiles(): Record<string, BotProfileId> {
+    return this.session.botProfiles();
   }
 }

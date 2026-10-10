@@ -148,6 +148,13 @@
   font-weight: 600;
 }
 
+.away {
+  color: var(--err);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
 .num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;

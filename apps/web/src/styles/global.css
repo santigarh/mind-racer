@@ -25,6 +25,10 @@
   --lane-tortuga: #7bd88f;
   --lane-crucero: #6cb6ff;
   --lane-turbo: #ff7ab6;
+  /* Other people in an online race */
+  --lane-human-1: #c792ea;
+  --lane-human-2: #4cc9f0;
+  --lane-human-3: #f4d35e;
 
   /* Spacing scale */
   --s-25: 2px;
