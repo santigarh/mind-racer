@@ -1,0 +1,143 @@
+:root {
+  color-scheme: dark;
+
+  /* Surfaces (flat, no gradients) */
+  --bg: #181818;
+  --surface: #1f1f1f;
+  --surface-2: #272727;
+  --surface-3: #313131;
+  --border: #313131;
+
+  /* Text */
+  --text: #f2f2f2;
+  --text-muted: #9b9b9b;
+  --text-faint: #6f6f6f;
+
+  /* Accents */
+  --accent: #ffb547;
+  --accent-ink: #1f1f1f;
+  --ok: #3ddc84;
+  --err: #ff6b6b;
+  --nitro: #4cc9f0;
+
+  /* Lane colors */
+  --lane-player: #ffb547;
+  --lane-tortuga: #7bd88f;
+  --lane-crucero: #6cb6ff;
+  --lane-turbo: #ff7ab6;
+
+  /* Spacing scale */
+  --s-25: 2px;
+  --s-50: 4px;
+  --s-75: 8px;
+  --s-100: 12px;
+  --s-200: 16px;
+  --s-300: 24px;
+  --s-400: 32px;
+  --s-500: 40px;
+  --s-600: 48px;
+  --s-700: 64px;
+  --s-800: 80px;
+
+  /* Radius (Tailwind steps) */
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  --r-2xl: 16px;
+  --r-3xl: 24px;
+  --r-full: 9999px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur: 700ms;
+  --dur-fast: 300ms;
+
+  --font: 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--s-200);
+  top: -64px;
+  padding: var(--s-75) var(--s-100);
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  z-index: 100;
+  transition: top var(--dur-fast) var(--ease);
+}
+
+.skip-link:focus {
+  top: var(--s-200);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

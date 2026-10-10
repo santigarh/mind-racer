@@ -1,0 +1,40 @@
+schema: spec-driven
+
+context: |
+  Language: es
+  All artifacts must be written in es.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+  Proyecto: Mind Racer — juego de carreras estilo Nitro Type donde el auto avanza
+  respondiendo desafíos de habilidad mental. Primera variante: Math Racer (cada
+  respuesta correcta acelera el auto; la dificultad sube por nivel y se adapta al
+  desempeño). Variantes futuras: otras habilidades mentales (lógica, memoria,
+  vocabulario, secuencias) reutilizando el mismo motor de carrera.
+  Público: todas las edades (desde sumas básicas hasta cálculo mental avanzado).
+  Modos: carrera contra bots locales y multijugador en tiempo real.
+  Stack: Vite + React + TypeScript (frontend). El motor de carrera y los
+  generadores de desafíos son TypeScript puro, sin dependencias de React, para
+  poder compartirse con el servidor multijugador.
+  UI en español; código e identificadores en inglés.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

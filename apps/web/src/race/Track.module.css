@@ -1,0 +1,174 @@
+.track {
+  list-style: none;
+  margin: 0;
+  padding: var(--s-100);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-75);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3xl);
+  background: var(--surface);
+}
+
+.lane {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-100);
+  padding: var(--s-75);
+  border: 1px solid transparent;
+  /* outer 24px − 12px gap */
+  border-radius: var(--r-xl);
+}
+
+.lane[data-player='true'] {
+  background: var(--surface-2);
+  border-color: var(--surface-3);
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: var(--s-75);
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.position {
+  flex: none;
+  width: 32px;
+  font-family: var(--font-mono);
+  color: var(--lane-color);
+}
+
+.you {
+  padding: 0 var(--s-75);
+  border-radius: var(--r-full);
+  background: var(--lane-color);
+  color: var(--accent-ink);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.road {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-75);
+  height: 48px;
+  padding: 0 var(--s-75);
+  /* inner of a 12px lane with 8px padding → 4px */
+  border-radius: var(--r-md);
+  background: var(--bg);
+}
+
+.road::before {
+  content: '';
+  position: absolute;
+  left: var(--s-75);
+  right: var(--s-500);
+  top: 50%;
+  border-top: 2px dashed var(--surface-3);
+}
+
+.rail {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  container-type: inline-size;
+}
+
+.car {
+  --car-size: 32px;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: flex;
+  align-items: center;
+  color: var(--lane-color);
+  /* progress 0..1 across the rail, minus the car's own width */
+  transform: translate(calc(var(--progress) * (100cqw - var(--car-size))), -50%);
+  will-change: transform;
+}
+
+.car[data-finished='true'] {
+  filter: drop-shadow(0 0 8px var(--lane-color));
+}
+
+.flame {
+  position: absolute;
+  right: 100%;
+  width: 0;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--nitro);
+  opacity: 0;
+  transition:
+    width var(--dur-fast) var(--ease),
+    opacity var(--dur-fast) var(--ease);
+}
+
+.car[data-nitro='true'] {
+  filter: drop-shadow(0 0 12px var(--nitro));
+}
+
+.car[data-nitro='true'] .flame {
+  width: 32px;
+  opacity: 1;
+  animation: flicker 160ms linear infinite alternate;
+}
+
+.finish {
+  flex: none;
+  color: var(--text-muted);
+}
+
+@keyframes flicker {
+  from {
+    transform: scaleX(0.7);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.car svg {
+  width: var(--car-size);
+  height: var(--car-size);
+}
+
+@media (max-width: 640px) {
+  .car {
+    --car-size: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .track {
+    padding: var(--s-75);
+    gap: var(--s-50);
+    border-radius: var(--r-2xl);
+  }
+  .lane {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: var(--s-75);
+    padding: var(--s-50);
+    /* outer 16px − 8px gap */
+    border-radius: var(--r-lg);
+  }
+  .position {
+    width: auto;
+  }
+  .you {
+    display: none;
+  }
+  .road {
+    height: 32px;
+    border-radius: var(--r-md);
+  }
+}

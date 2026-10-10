@@ -1,0 +1,51 @@
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-75);
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-75);
+  height: 48px;
+  border: 1px solid var(--surface-3);
+  border-radius: var(--r-xl);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease);
+}
+
+.key:active:not(:disabled) {
+  transform: scale(0.96);
+  background: var(--surface-3);
+}
+
+.key:disabled {
+  opacity: 0.4;
+}
+
+.enter {
+  grid-column: 1 / -1;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.enter:active:not(:disabled) {
+  background: #ffc46f;
+}

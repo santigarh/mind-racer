@@ -1,0 +1,123 @@
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--s-200) var(--s-200) var(--s-600);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-200);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-200);
+}
+
+.title {
+  font-size: 18px;
+  line-height: 28px;
+  color: var(--text-muted);
+}
+
+.arena {
+  position: relative;
+  border-radius: var(--r-3xl);
+}
+
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-75);
+  padding: var(--s-400) var(--s-200);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3xl);
+  background: var(--surface);
+  color: var(--accent);
+  animation: enter 700ms var(--ease) both;
+}
+
+.doneTitle {
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+
+.doneHint {
+  color: var(--text-muted);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: var(--s-200);
+  background: rgb(0 0 0 / 0.7);
+  backdrop-filter: blur(12px);
+  animation: fadeIn 300ms var(--ease) both;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-100);
+  padding: var(--s-300);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3xl);
+  background: var(--surface);
+  animation: enter 500ms var(--ease) both;
+}
+
+.dialogTitle {
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.dialogText {
+  color: var(--text-muted);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--s-75);
+  margin-top: var(--s-200);
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--s-100) var(--s-100) var(--s-300);
+    gap: var(--s-100);
+  }
+  .title {
+    font-size: 14px;
+    line-height: 20px;
+  }
+}
