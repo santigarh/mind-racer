@@ -30,9 +30,9 @@
 
 ## 6. Publicar el repositorio
 
-- [ ] 6.1 Hacer commit de los cambios pendientes (incluido el archivo de `add-multiplayer-rooms`) y fijar `user.email` local en `35776908+santigarh@users.noreply.github.com`; verificar con `git config user.email`
-- [ ] 6.2 Crear la rama de respaldo, reescribir autor y committer de todos los commits con `git filter-branch --env-filter` (conservando fechas) y comparar el árbol con el respaldo; verificar que `git log --format='%ae %ce' | sort -u` solo muestra el correo privado y que `git diff respaldo HEAD` está vacío; luego borrar el respaldo y `refs/original`
-- [ ] 6.3 Repetir la auditoría de publicación (sin secretos, sin `.env`, sin el correo personal en el historial ni en archivos); verificar con los mismos comandos de búsqueda de la exploración
+- [x] 6.1 Hacer commit de los cambios pendientes (incluido el archivo de `add-multiplayer-rooms`) y fijar `user.email` local en `35776908+santigarh@users.noreply.github.com`; verificar con `git config user.email`
+- [x] 6.2 Crear la rama de respaldo, reescribir autor y committer de todos los commits con `git filter-branch --env-filter` (conservando fechas) y comparar el árbol con el respaldo; verificar que `git log --format='%ae %ce' | sort -u` solo muestra el correo privado y que `git diff respaldo HEAD` está vacío; luego borrar el respaldo y `refs/original`
+- [x] 6.3 Repetir la auditoría de publicación (sin secretos, sin `.env`, sin el correo personal en el historial ni en archivos); verificar con los mismos comandos de búsqueda de la exploración
 - [ ] 6.4 Con confirmación explícita del usuario en ese momento, crear `santigarh/mind-racer` público con `gh repo create --public --source . --push`; verificar que el repo existe, que la licencia MIT aparece y que el primer run de GitHub Actions pasa
 
 ## 7. Despliegue (con el usuario)
