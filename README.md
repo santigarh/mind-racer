@@ -14,7 +14,7 @@ apps/server         Servidor multijugador (Node + WebSockets), salas en memoria
 openspec/           Planificación con OpenSpec (specs y cambios)
 ```
 
-Juega en línea: la web se publica en Cloudflare Pages y el servidor multijugador en Render (ver [Publicar en internet](#publicar-en-internet)).
+Juega en línea: la web se publica en Cloudflare (Workers, archivos estáticos) y el servidor multijugador en Render (ver [Publicar en internet](#publicar-en-internet)).
 
 ## Requisitos
 
@@ -60,11 +60,11 @@ La primera vez, Windows puede bloquear las conexiones entrantes a Node:
 
 ## Publicar en internet
 
-La web va en **Cloudflare Pages** (gratis, siempre disponible) y el servidor multijugador en **Render** (plan gratis).
+La web va en **Cloudflare Workers** como sitio estático (gratis, siempre disponible) y el servidor multijugador en **Render** (plan gratis).
 Ambos se actualizan solos con cada push a `main`. Render espera a que pasen las pruebas de GitHub Actions.
 
 ```
-jugador --https--> Cloudflare Pages (menú y modo solo: siempre al instante)
+jugador --https--> Cloudflare Worker (menú y modo solo: siempre al instante)
    |
    +-----wss-----> Render (solo "Jugar con amigos")
 ```
@@ -81,7 +81,7 @@ jugador --https--> Cloudflare Pages (menú y modo solo: siempre al instante)
 |---|---|---|
 | `PORT` | Puerto de HTTP y WebSocket | Lo define Render |
 | `HOST` | Interfaz donde escucha | `0.0.0.0` (por defecto) |
-| `ALLOWED_ORIGINS` | Sitios que pueden conectarse, separados por comas | La URL de Pages, p. ej. `https://mind-racer.pages.dev` |
+| `ALLOWED_ORIGINS` | Sitios que pueden conectarse, separados por comas | La URL de la web, p. ej. `https://mind-racer.<subdominio>.workers.dev` |
 | `TRUST_PROXY_HOPS` | Proxies delante del servidor (para el límite de salas por IP) | `1` |
 
 Sin `ALLOWED_ORIGINS` el servidor acepta cualquier origen, como en la red local. `GET /health` responde `{"status":"ok","rooms":n}`.
@@ -93,18 +93,23 @@ Sin `ALLOWED_ORIGINS` el servidor acepta cualquier origen, como en la red local.
    1. Crea una cuenta en [render.com](https://render.com) e inicia sesión con GitHub.
    2. *New → Blueprint* y elige el repositorio. Render lee `render.yaml`: servicio `mind-racer-server`, plan gratis, región `virginia`.
       Si prefieres otra región (`oregon`, `ohio`, `frankfurt`, `singapore`), cámbiala en `render.yaml` **antes** de este paso, porque después no se puede cambiar.
-   3. Cuando pida `ALLOWED_ORIGINS`, escribe por ahora `https://mind-racer.pages.dev` (se ajusta en el paso 4).
+   3. Cuando pida `ALLOWED_ORIGINS`, escribe cualquier valor provisional (se ajusta en el paso 4 con la URL real de la web).
    4. Al terminar, abre `https://<nombre-del-servicio>.onrender.com/health`; debe responder `{"status":"ok",...}`.
-3. **Cloudflare Pages, la web:**
+3. **Cloudflare, la web:**
    1. Crea una cuenta en [dash.cloudflare.com](https://dash.cloudflare.com).
-   2. *Workers & Pages → Create → Pages → Connect to Git* y elige el repositorio.
-   3. Configuración del build:
-      - Build command: `corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build`
-      - Build output directory: `apps/web/dist`
-      - Variables de entorno: `NODE_VERSION` = `22` y `VITE_SERVER_URL` = `wss://<nombre-del-servicio>.onrender.com`
-   4. Al terminar, Pages te da la URL definitiva (por ejemplo `https://mind-racer.pages.dev`).
-4. **Ajustar el origen:** en Render, *Environment*, pon en `ALLOWED_ORIGINS` la URL exacta de Pages y guarda; Render se redespliega solo.
-5. **Probar:** abre la URL de Pages desde el celular **con datos móviles**, crea una sala y únete desde otro dispositivo con el código.
+   2. *Workers & Pages → Create → Import a repository* y elige el repositorio. Nombre del Worker: **`mind-racer`**
+      (debe coincidir con `name` en `apps/web/wrangler.jsonc`).
+   3. En la configuración del build (o después en el Worker → *Settings → Build*):
+      - Root directory: `apps/web`
+      - Build command: `corepack enable && pnpm install --frozen-lockfile && pnpm build`
+      - Deploy command: `npx wrangler deploy` (el que viene por defecto)
+      - Variables **de build**: `NODE_VERSION` = `22` y `VITE_SERVER_URL` = `wss://<nombre-del-servicio>.onrender.com`
+   4. Al terminar, Cloudflare te da la URL definitiva, por ejemplo `https://mind-racer.<subdominio>.workers.dev`.
+
+   `apps/web/wrangler.jsonc` le dice a Cloudflare que publique `apps/web/dist` como sitio de una sola página. Sin ese archivo,
+   Cloudflare intenta detectar la app sola y falla en este monorepo (por ejemplo con `Unsupported URL Type "workspace:"`).
+4. **Ajustar el origen:** en Render, *Environment*, pon en `ALLOWED_ORIGINS` la URL exacta de la web (sin `/` al final) y guarda; Render se redespliega solo.
+5. **Probar:** abre la URL de la web desde el celular **con datos móviles**, crea una sala y únete desde otro dispositivo con el código.
 
 ### Si el build falla por pnpm
 

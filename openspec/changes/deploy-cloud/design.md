@@ -15,7 +15,7 @@ Ver proposal.md (Why). Estado actual relevante (revisado en el código):
 ## Goals / Non-Goals
 
 **Goals:**
-- Publicar el juego con costo cero: la web siempre disponible y el multijugador disponible tras, como máximo, un minuto de espera.
+- Publicar el juego con costo cero: la web siempre disponible (Cloudflare Workers con assets estáticos, plan gratis) y el multijugador disponible tras, como máximo, un minuto de espera.
 - Despliegue automático desde GitHub, sin pasos manuales en el panel salvo crear cuentas, conectar el repo y definir variables.
 - Que `pnpm dev` y el juego en la red local sigan funcionando igual.
 
@@ -48,13 +48,14 @@ Nuevo script `build:prod` en `apps/server`: esbuild empaqueta `src/main.ts` con 
 - Una instancia; el plan gratis no escala, y se deja explícito que no debe activarse autoescalado.
 - Despliegue automático solo cuando pasan las verificaciones de GitHub (opción "after CI checks pass"). Si el Blueprint no la acepta como campo, se configura en el panel y se documenta.
 
-### D5. Cloudflare Pages (web)
-Integración con Git desde el panel (no requiere secretos en el repo):
-- Comando de build: `corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build`.
-- Directorio de salida: `apps/web/dist`.
-- Variables: `NODE_VERSION=22`, `VITE_SERVER_URL=wss://<servicio>.onrender.com`.
-- Pages no espera a GitHub Actions: si un push rompe la web, Pages podría publicarla igual. Es aceptable para un juego familiar, porque las pruebas del CI avisan en el mismo push.
-- *Alternativa:* desplegar desde GitHub Actions con `wrangler pages deploy`. Así solo se publica si pasan las pruebas, pero requiere guardar un token de Cloudflare como secreto. Se deja como mejora posible.
+### D5. Cloudflare Workers con assets estáticos (web)
+*Cambio durante la implementación:* el panel de Cloudflare ya no ofreció crear un proyecto de Pages; crea Workers con despliegue desde Git (Workers Builds). Su comando de despliegue (`npx wrangler deploy`) intenta detectar la app solo y falla en un monorepo pnpm: primero en la raíz ("application detection logic has been run in the root of a workspace") y luego dentro de `apps/web`, al instalar con npm, que no entiende `workspace:*`.
+- `apps/web/wrangler.jsonc` declara el Worker `mind-racer` con `assets.directory: ./dist` y `not_found_handling: single-page-application`. Al existir este archivo, Wrangler no hace detección automática.
+- `wrangler` es dependencia de desarrollo de `apps/web` (instalada con pnpm), así `npx wrangler deploy` usa esa versión y nunca instala nada con npm. `workerd` (dependencia de wrangler) va en `allowBuilds: false`: publicar assets no lo usa y, sin declararlo, `pnpm install --frozen-lockfile` falla.
+- En el panel (Worker → *Settings → Build*): *Root directory* `apps/web`; *Build command* `corepack enable && pnpm install --frozen-lockfile && pnpm build`; *Deploy command* `npx wrangler deploy` (por defecto); variables de **build** `NODE_VERSION=22` y `VITE_SERVER_URL=wss://<servicio>.onrender.com` (Vite la incrusta al compilar).
+- La URL es `https://mind-racer.<subdominio>.workers.dev`; esa es la que va en `ALLOWED_ORIGINS`.
+- Workers Builds tampoco espera a GitHub Actions (mismo trade-off que antes).
+- *Alternativa:* Cloudflare Pages, el plan original; descartado porque el panel ya no lo ofrece para proyectos nuevos.
 
 ### D6. pnpm 12 en las plataformas
 Ambas plataformas instalan pnpm con `corepack enable`, que respeta `packageManager: pnpm@12.10.1`.
@@ -101,7 +102,7 @@ Incluye qué esperar del plan gratis: el servidor se duerme a los 15 minutos y d
 - [750 horas gratis al mes] → alcanzan para un solo servicio 24/7, y el plan gratis además se duerme sin uso.
 - [Las salas se pierden si el servidor se reinicia o despliega] → aceptado; el cliente muestra el error y vuelve al menú. Se recomienda no hacer push durante una partida familiar.
 - [pnpm 12 no disponible en el build] → plan B de D6.
-- [Pages publica aunque fallen las pruebas] → aceptado (D5); mejora posible con `wrangler`.
+- [Workers Builds publica aunque fallen las pruebas] → aceptado (D5); mejora posible: desplegar desde GitHub Actions con `wrangler`.
 - [Abuso del servidor público] → orígenes permitidos, límite de salas por IP y los límites existentes (tamaño de mensaje, 20 respuestas/s, 200 salas).
 - [La reescritura del historial falla o pierde algo] → se hace sobre una rama de respaldo y se compara el árbol de archivos (`git diff respaldo HEAD` vacío) antes de borrarla.
 
@@ -109,8 +110,8 @@ Incluye qué esperar del plan gratis: el servidor se duerme a los 15 minutos y d
 
 1. Implementar y probar los cambios de servidor y cliente en local; `pnpm dev` debe seguir igual.
 2. Reescribir el autor, agregar `LICENSE` y crear el repo público.
-3. Conectar Render (Blueprint) y luego Cloudflare Pages con sus variables.
-4. Ajustar `ALLOWED_ORIGINS` a la URL definitiva de Pages y probar desde un celular fuera del wifi de casa.
+3. Conectar Render (Blueprint) y luego el Worker de Cloudflare con sus variables de build.
+4. Ajustar `ALLOWED_ORIGINS` a la URL definitiva del Worker (`*.workers.dev`) y probar desde un celular fuera del wifi de casa.
 5. Rollback: en Render y Pages se puede volver a un despliegue anterior desde el panel. El juego local no depende de la nube.
 
 ## Open Questions

@@ -3,5 +3,7 @@ packages:
   - "packages/*"
 
 # esbuild ships its binary as an optional package; its install script is not needed.
+# workerd (from wrangler) only matters for running Workers locally; publishing static assets doesn't use it.
 allowBuilds:
   esbuild: false
+  workerd: false
