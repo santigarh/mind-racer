@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { settingsStore } from '../settings/settings';
 
 /** jsdom has no matchMedia; tests can flip `coarsePointer` to emulate touch screens. */
 export const media = { coarsePointer: false };
@@ -21,6 +22,7 @@ Object.defineProperty(window, 'matchMedia', {
 
 afterEach(() => {
   cleanup();
+  settingsStore.set({ sound: true });
   localStorage.clear();
   sessionStorage.clear();
   media.coarsePointer = false;

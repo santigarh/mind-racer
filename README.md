@@ -41,9 +41,14 @@ Para un solo paquete: `pnpm --filter @mind-racer/engine test`, `pnpm --filter se
 1. En la computadora que hará de servidor, ejecuta `pnpm dev`. La consola muestra sus direcciones de red,
    por ejemplo `Network: http://192.168.1.12:5173/` (busca la que dice **Wi-Fi** o **Ethernet**).
 2. En cada celular, tablet o computadora conectada al **mismo wifi**, abre esa dirección en el navegador.
-3. Una persona entra a **Jugar con amigos → Crear sala** y comparte el código de 4 caracteres (por ejemplo `K7QF`).
-4. Las demás eligen **Unirse** y escriben el código. Cada quien elige su nivel en la sala y el anfitrión pulsa **Iniciar carrera**.
+3. Una persona entra a **Jugar con amigos → Crear sala**. La sala muestra un código de 4 caracteres (por ejemplo `K7QF`),
+   un código QR y el enlace de la sala.
+4. Las demás escanean el QR con la cámara, abren el enlace o eligen **Unirse** y escriben el código. Con el QR o el enlace
+   entran directo a la sala. Cada quien elige su nivel en la sala y el anfitrión pulsa **Iniciar carrera**.
    Los carriles libres se completan con bots.
+
+El botón **Compartir** abre el menú de compartir del celular, o copia el enlace en la computadora. Por `http://` en la red
+de casa los navegadores no permiten ninguna de las dos cosas: copia el enlace del campo o usa el QR.
 
 La app se conecta sola al servidor de la misma computadora que la sirvió (puerto 8787). Para usar otro servidor,
 define `VITE_SERVER_URL`, por ejemplo `VITE_SERVER_URL=ws://192.168.1.50:8787`.
@@ -57,6 +62,15 @@ La primera vez, Windows puede bloquear las conexiones entrantes a Node:
   **Node.js JavaScript Runtime** y marca la casilla **Privada**.
 - Verifica que tu red wifi esté configurada como **privada** (Configuración → Red e Internet → propiedades del wifi).
 - Las direcciones de adaptadores virtuales (VirtualBox, WSL, VPN) no sirven para los celulares: usa la del wifi.
+
+### Sonido y vibración
+
+La carrera suena con la cuenta regresiva, cada acierto o error, el nitro y la llegada; en celulares Android además vibra.
+El botón del altavoz (en el menú, la sala y la carrera) silencia todo y el juego lo recuerda en ese dispositivo.
+
+- **iPhone y iPad:** si el interruptor lateral de silencio está activado, el sistema puede apagar los sonidos del
+  navegador; súbele el volumen o desactiva el modo silencio. Safari no permite vibrar, así que ahí no hay vibración.
+- El sonido empieza con el primer toque o tecla: los navegadores no dejan reproducir audio antes.
 
 ## Publicar en internet
 

@@ -70,11 +70,14 @@ export function Track({ runners, distance, playerId, botProfiles, showLevels = f
               .join(', ')}
           >
             <span className={styles.name}>
-              <span className={styles.position}>{ordinal(runner.position)}</span>
+              {/* One row on wide screens; on phones the details sit on a small line above the name. */}
+              <span className={styles.meta}>
+                <span className={styles.position}>{ordinal(runner.position)}</span>
+                {showLevels && <span className={styles.level}>N{runner.chosenLevel}</span>}
+                {isPlayer && <span className={styles.you}>Tú</span>}
+                {away && <span className={styles.away}>{away}</span>}
+              </span>
               <span className={styles.runnerName}>{runner.name}</span>
-              {showLevels && <span className={styles.level}>N{runner.chosenLevel}</span>}
-              {isPlayer && <span className={styles.you}>Tú</span>}
-              {away && <span className={styles.away}>{away}</span>}
             </span>
             <div className={styles.road}>
               <div className={styles.rail}>

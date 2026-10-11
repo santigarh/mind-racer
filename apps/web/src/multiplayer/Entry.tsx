@@ -12,17 +12,24 @@ interface EntryProps {
   error: string | null;
   /** When the connection stopped being open; null while open. */
   offlineSince: number | null;
+  /** Code from a room link, shown in the field. */
+  initialCode?: string;
   onCreate: () => void;
   onJoin: (code: string) => void;
   onBack: () => void;
 }
 
+const codeFormatError = () => `El código tiene ${ROOM_CODE_LENGTH} letras o números, por ejemplo K7QF.`;
+
 /** "Jugar con amigos": create a room or join one with its code. */
-export function Entry({ pending, error, offlineSince, onCreate, onJoin, onBack }: EntryProps) {
+export function Entry({ pending, error, offlineSince, initialCode = '', onCreate, onJoin, onBack }: EntryProps) {
   const codeId = useId();
   const errorId = useId();
-  const [code, setCode] = useState('');
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [code, setCode] = useState(initialCode);
+  // A malformed code from a room link gets the same message as one typed by hand.
+  const [localError, setLocalError] = useState<string | null>(() =>
+    initialCode && !isRoomCode(normalizeRoomCode(initialCode)) ? codeFormatError() : null,
+  );
   const shownError = localError ?? error;
   const connecting = pending && offlineSince !== null;
   const waking = useElapsed(connecting ? offlineSince : null, WAKING_AFTER_MS);
@@ -31,7 +38,7 @@ export function Entry({ pending, error, offlineSince, onCreate, onJoin, onBack }
     event.preventDefault();
     const normalized = normalizeRoomCode(code);
     if (!isRoomCode(normalized)) {
-      setLocalError(`El código tiene ${ROOM_CODE_LENGTH} letras o números, por ejemplo K7QF.`);
+      setLocalError(codeFormatError());
       return;
     }
     setLocalError(null);

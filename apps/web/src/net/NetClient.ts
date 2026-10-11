@@ -36,12 +36,15 @@ export const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 5000] as const;
 /** A socket that neither opens nor closes in this time is abandoned and retried. */
 export const CONNECT_TIMEOUT_MS = 10_000;
 
-/** Server URL: VITE_SERVER_URL, or the same host that served the page on port 8787. */
+/**
+ * Server URL: VITE_SERVER_URL, or the same host that served the page on port 8787.
+ * An http(s) URL is accepted and turned into ws(s), since that is an easy mistake to make.
+ */
 export function serverUrl(
   configured: string | undefined = import.meta.env.VITE_SERVER_URL,
   location: Pick<Location, 'hostname' | 'protocol'> = window.location,
 ): string {
-  if (configured) return configured;
+  if (configured) return configured.trim().replace(/^http(s?):\/\//i, (_, s: string) => `ws${s.toLowerCase()}://`);
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
   return `${scheme}://${location.hostname}:8787`;
 }

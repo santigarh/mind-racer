@@ -45,7 +45,8 @@ Ver proposal.md (Why) y las specs de este cambio. Estado actual relevante (revis
 ### D3. Compartir
 - Con `navigator.share` disponible se comparte `{ title: "Mind Racer", text: "¡Ven a correr conmigo! Sala K7QF", url }`; si la persona cancela (`AbortError`), no pasa nada.
 - Si no está disponible, se usa `navigator.clipboard.writeText(url)` y se muestra "Enlace copiado" durante 2 s.
-- Ambas APIs exigen contexto seguro (HTTPS o `localhost`). En la red de casa por `http://192.168.x.x` no existen, así que el enlace también se muestra siempre en un campo de solo lectura que se puede seleccionar y copiar a mano.
+- Ambas APIs exigen contexto seguro (HTTPS o `localhost`). En la red de casa por `http://192.168.x.x` no existen, así que el enlace también se muestra siempre en un campo de solo lectura que se selecciona entero al tocarlo.
+- Sin ninguna de las dos APIs, el botón "Compartir" no se muestra (no haría nada); quedan el QR y el campo. Si el portapapeles rechaza la copia, se pide copiarlo del campo.
 
 ### D4. Sonidos con Web Audio
 - Módulo `audio/sfx.ts` con un `AudioContext` creado de forma perezosa y sonidos sintetizados (oscilador + envolvente de ganancia), sin archivos de audio:
@@ -81,14 +82,16 @@ Ver proposal.md (Why) y las specs de este cambio. Estado actual relevante (revis
 ### D7. Preferencia de sonido
 - Clave nueva `mind-racer:settings:v1` con `{ "sound": true }`, separada del perfil para no migrarlo. Lectura y escritura tolerantes a almacenamiento bloqueado, igual que el perfil.
 - Un store mínimo (`subscribe`/`get`) consumido con `useSyncExternalStore`, para que el interruptor del menú y el de la carrera se sincronicen.
-- El botón (iconos `SpeakerHigh` y `SpeakerSlash`) va en el encabezado del menú, del lobby y de la carrera, con `aria-pressed` y una etiqueta clara ("Silenciar" o "Activar sonido").
+- El botón (iconos `SpeakerHigh` y `SpeakerSlash`) va en el encabezado del menú, del lobby y de la carrera. Su nombre accesible es siempre "Silenciar" con `aria-pressed` (cambiar el nombre y el estado a la vez confunde a los lectores de pantalla); el `title` dice "Silenciar" o "Activar sonido".
 
 ### D8. Nombres en móvil
 En la media query de 640 px:
-- La columna de nombre pasa de 88 a 112 px y el texto a 12/16 px.
-- Se reemplaza `nowrap` + `ellipsis` por un salto de línea permitido hasta 2 líneas (`-webkit-line-clamp: 2`), con `overflow-wrap: anywhere` para nombres sin espacios.
-- La posición y la etiqueta `N8` se agrupan en una línea pequeña aparte (`2.º · N8`) y el nombre ocupa su propia línea. Dos líneas de 16 px caben en los 32 px de altura de la pista.
-- Se verifica en el navegador a 375 × 812 px que la pista, el desafío y el teclado sigan cabiendo.
+- La columna pasa de 88 a 144 px: la posición y la etiqueta `N8` se apilan en una columna angosta (`2.º` sobre `N8`) a la izquierda, y el nombre usa los ~112 px restantes a 12/16 px.
+- Se reemplaza `nowrap` + `ellipsis` por un salto de línea permitido hasta 2 líneas (`-webkit-line-clamp: 2`), con `overflow-wrap: anywhere` para nombres sin espacios. Dos líneas de 16 px caben en los 32 px de altura de la pista, así que el carril no crece.
+- *Descartado al probar:* una línea pequeña con `2.º · N8` encima del nombre agrandaba cada carril a 58 px y la página dejaba de caber a 375 × 812 (842 px).
+- "Desconectado" o "Salió" no caben junto al nombre: en celular se muestran como etiqueta pequeña sobre la pista, antes de la bandera.
+- En pantallas anchas se mantiene una sola fila (posición · nombre · nivel · etiquetas).
+- Verificado en el navegador a 375 × 812 px con 4 nombres de hasta 20 caracteres y teclado: la página mide 812 px y cada nombre se lee completo.
 
 ### D9. URL del servidor
 `serverUrl()` normaliza el esquema: `https://` pasa a `wss://` y `http://` a `ws://`; `ws(s)://` queda igual. Se prueba con pruebas unitarias.

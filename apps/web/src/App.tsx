@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { randomSeed, type RaceSnapshot } from '@mind-racer/engine';
 import { LocalRaceController, type LocalRaceControllerOptions } from './game/LocalRaceController';
 import { applyRaceResult, type Profile, type ProgressUpdate } from './progress/profile';
@@ -9,11 +9,12 @@ import { Onboarding } from './screens/Onboarding';
 import { Results } from './screens/Results';
 import { MultiplayerApp } from './multiplayer/MultiplayerApp';
 import { MultiplayerSession } from './net/MultiplayerSession';
+import { clearRoomLink, readRoomLink } from './multiplayer/roomLink';
 
 type Screen =
   | { name: 'onboarding' }
   | { name: 'menu' }
-  | { name: 'multiplayer'; session: MultiplayerSession }
+  | { name: 'multiplayer'; session: MultiplayerSession; autoJoinCode?: string | null }
   | { name: 'race'; controller: LocalRaceController }
   | { name: 'results'; controller: LocalRaceController; snapshot: RaceSnapshot; update: ProgressUpdate };
 
@@ -32,14 +33,20 @@ export function App({
   createMultiplayerSession = () => new MultiplayerSession(),
 }: AppProps) {
   const [profile, setProfile] = useState<Profile | null>(() => loadProfile());
+  // Opened with a room link (`?sala=K7QF`): go to that room, after creating a profile if needed.
+  const [linkCode] = useState(() => readRoomLink());
   const [screen, setScreen] = useState<Screen>(() => {
     if (!profile) return { name: 'onboarding' };
-    // A reload while in a room goes straight back to it.
     const session = createMultiplayerSession();
+    if (linkCode) return { name: 'multiplayer', session, autoJoinCode: linkCode };
+    // A reload while in a room goes straight back to it.
     if (session.canResume()) return { name: 'multiplayer', session };
     session.dispose();
     return { name: 'menu' };
   });
+  useEffect(() => {
+    if (linkCode) clearRoomLink();
+  }, [linkCode]);
   const [lastLevel, setLastLevel] = useState<number | undefined>(undefined);
 
   const startRace = useCallback(
@@ -57,7 +64,11 @@ export function App({
         onDone={(created) => {
           saveProfile(created);
           setProfile(created);
-          setScreen({ name: 'menu' });
+          setScreen(
+            linkCode
+              ? { name: 'multiplayer', session: createMultiplayerSession(), autoJoinCode: linkCode }
+              : { name: 'menu' },
+          );
         }}
       />
     );
@@ -110,6 +121,7 @@ export function App({
     return (
       <MultiplayerApp
         session={screen.session}
+        autoJoinCode={screen.autoJoinCode}
         profile={profile}
         onProfile={(updated) => {
           saveProfile(updated);

@@ -74,6 +74,11 @@ export class MultiplayerSession {
     return this.client.storedSession() !== null;
   }
 
+  /** Code of the room this tab was in before a reload, if any. */
+  resumeCode(): string | null {
+    return this.client.storedSession()?.code ?? null;
+  }
+
   /** Rejoins the stored room once (repeated calls, e.g. from StrictMode effects, do nothing). */
   resume(): void {
     const session = this.client.storedSession();
@@ -89,7 +94,9 @@ export class MultiplayerSession {
     this.update({ pending: true, error: null });
   }
 
+  /** Joins once: ignored while another request is pending or already in a room (StrictMode effects). */
   join(code: string, name: string, level: number): void {
+    if (this.view.pending || this.view.playerId) return;
     this.client.connect();
     this.client.send({ type: 'join', code, name, level });
     this.update({ pending: true, error: null });

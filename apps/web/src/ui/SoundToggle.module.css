@@ -1,0 +1,4 @@
+.toggle {
+  flex: none;
+  padding: var(--s-75);
+}

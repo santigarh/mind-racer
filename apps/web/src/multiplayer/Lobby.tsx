@@ -2,6 +2,8 @@ import { Crown, Lock, SignOut, WifiSlash } from '@phosphor-icons/react';
 import { MATH_LEVELS } from '@mind-racer/engine';
 import type { RoomPlayer } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
+import { SoundToggle } from '../ui/SoundToggle';
+import { ShareRoom } from './ShareRoom';
 import type { RoomMessage } from '../net/MultiplayerSession';
 import styles from './Multiplayer.module.css';
 
@@ -31,10 +33,13 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
     <main id="main" className={styles.page}>
       <header className={styles.header}>
         <span className={styles.kicker}>Sala</span>
-        <Button variant="ghost" size="small" onClick={onLeave}>
-          <SignOut size={18} aria-hidden />
-          Salir de la sala
-        </Button>
+        <div className={styles.headerActions}>
+          <SoundToggle />
+          <Button variant="ghost" size="small" onClick={onLeave}>
+            <SignOut size={18} aria-hidden />
+            Salir de la sala
+          </Button>
+        </div>
       </header>
 
       {reconnecting && (
@@ -48,6 +53,7 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
         <strong className={styles.code} data-testid="room-code">
           {room.code}
         </strong>
+        <ShareRoom code={room.code} />
       </section>
 
       <div className={styles.lobbyGrid}>

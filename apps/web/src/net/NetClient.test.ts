@@ -26,6 +26,15 @@ describe('URL del servidor', () => {
     expect(serverUrl('ws://otro:9000', { hostname: 'casa', protocol: 'http:' })).toBe('ws://otro:9000');
   });
 
+  it('convierte http(s) en ws(s) y deja ws(s) como está', () => {
+    const at = { hostname: 'casa', protocol: 'https:' };
+    expect(serverUrl('https://mind-racer.onrender.com', at)).toBe('wss://mind-racer.onrender.com');
+    expect(serverUrl('http://192.168.1.20:8787', at)).toBe('ws://192.168.1.20:8787');
+    expect(serverUrl('wss://mind-racer.onrender.com', at)).toBe('wss://mind-racer.onrender.com');
+    expect(serverUrl('ws://192.168.1.20:8787', at)).toBe('ws://192.168.1.20:8787');
+    expect(serverUrl('HTTPS://Servidor.example ', at)).toBe('wss://Servidor.example');
+  });
+
   it('por defecto, el mismo host que sirvió la página en el puerto 8787', () => {
     expect(serverUrl(undefined, { hostname: '192.168.1.20', protocol: 'http:' })).toBe('ws://192.168.1.20:8787');
     expect(serverUrl(undefined, { hostname: 'juego.example', protocol: 'https:' })).toBe('wss://juego.example:8787');

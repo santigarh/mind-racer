@@ -4,12 +4,15 @@ import type { RaceSnapshot } from '@mind-racer/engine';
 import type { RaceViewSource } from '../game/RaceViewSource';
 import { useRaceController } from '../game/useRaceController';
 import { Button } from '../ui/Button';
+import { SoundToggle } from '../ui/SoundToggle';
 import { formatTime, ordinal } from '../ui/format';
 import { ChallengePanel } from './ChallengePanel';
 import { Hud } from './Hud';
 import { Overlay } from './Overlay';
 import { Track } from './Track';
 import { useCoarsePointer } from './useCoarsePointer';
+import { useRaceFeedback, type RaceFeedbackOptions } from './useRaceFeedback';
+import { useSettings } from '../settings/settings';
 import styles from './RaceScreen.module.css';
 
 const EXIT_DIALOG = 'exit-dialog';
@@ -19,10 +22,14 @@ interface RaceScreenProps {
   controller: RaceViewSource;
   onFinish: (snapshot: RaceSnapshot) => void;
   onAbandon: () => void;
+  /** Injected sound and vibration, for tests. */
+  feedback?: Omit<RaceFeedbackOptions, 'enabled'>;
 }
 
-export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps) {
+export function RaceScreen({ controller, onFinish, onAbandon, feedback }: RaceScreenProps) {
   const state = useRaceController(controller);
+  const { sound } = useSettings();
+  useRaceFeedback(state, controller.playerId, { ...feedback, enabled: sound });
   const { snapshot } = state;
   const coarse = useCoarsePointer();
   const [confirmExit, setConfirmExit] = useState(false);
@@ -83,10 +90,13 @@ export function RaceScreen({ controller, onFinish, onAbandon }: RaceScreenProps)
     <main id="main" className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>Carrera · nivel {snapshot.level}</h1>
-        <Button variant="ghost" size="small" onClick={openExit} disabled={finished}>
-          <SignOut size={18} aria-hidden />
-          Salir
-        </Button>
+        <div className={styles.headerActions}>
+          <SoundToggle />
+          <Button variant="ghost" size="small" onClick={openExit} disabled={finished}>
+            <SignOut size={18} aria-hidden />
+            Salir
+          </Button>
+        </div>
       </header>
 
       {state.reconnecting && (

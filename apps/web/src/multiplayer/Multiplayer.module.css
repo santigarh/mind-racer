@@ -14,6 +14,12 @@
   gap: var(--s-200);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-75);
+}
+
 .hero {
   animation: rise 800ms var(--ease) both;
 }
@@ -140,6 +146,71 @@
   border-radius: var(--r-3xl);
   background: var(--surface);
   animation: rise 800ms var(--ease) both;
+}
+
+.share {
+  display: flex;
+  align-items: center;
+  gap: var(--s-300);
+  width: 100%;
+  max-width: 560px;
+  margin-top: var(--s-200);
+}
+
+.qr {
+  flex: none;
+  display: block;
+  width: 192px;
+  height: 192px;
+  /* the white quiet zone is part of the image; inner of the 24px block with 24px padding → square */
+  border-radius: var(--r-lg);
+}
+
+.shareLink {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-75);
+  flex: 1;
+  min-width: 0;
+}
+
+.linkInput {
+  width: 100%;
+  padding: var(--s-75) var(--s-100);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--r-xl);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.linkInput:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.shareStatus {
+  min-height: 20px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ok);
+}
+
+@media (max-width: 640px) {
+  .share {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .qr {
+    align-self: center;
+  }
+  .shareLink {
+    align-items: stretch;
+  }
 }
 
 .code {

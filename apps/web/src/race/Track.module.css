@@ -39,10 +39,22 @@
   text-overflow: ellipsis;
 }
 
+/* Wide screens: the details join the name's row, ordered position · name · level · tags. */
+.meta {
+  display: contents;
+}
+
 .runnerName {
+  order: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.level,
+.you,
+.away {
+  order: 2;
 }
 
 .level {
@@ -181,14 +193,49 @@
     border-radius: var(--r-2xl);
   }
   .lane {
-    grid-template-columns: 88px minmax(0, 1fr);
+    grid-template-columns: 144px minmax(0, 1fr);
     gap: var(--s-75);
     padding: var(--s-50);
     /* outer 16px − 8px gap */
     border-radius: var(--r-lg);
   }
+  /* Phones: the full name in up to two lines, with position and level stacked in a narrow column. */
+  .lane {
+    position: relative;
+  }
+  .name {
+    gap: var(--s-50);
+    white-space: normal;
+  }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    font-size: 12px;
+    line-height: 16px;
+  }
   .position {
     width: auto;
+  }
+  .runnerName {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    flex: 1;
+    font-size: 12px;
+    line-height: 16px;
+    overflow-wrap: anywhere;
+  }
+  /* No room beside the name: the presence tag sits on the road, just before the flag. */
+  .away {
+    position: absolute;
+    right: var(--s-500);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0 var(--s-50);
+    border-radius: var(--r-md);
+    background: var(--bg);
   }
   .you {
     display: none;

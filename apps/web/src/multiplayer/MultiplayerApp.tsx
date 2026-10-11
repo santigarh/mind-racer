@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { RaceSnapshot } from '@mind-racer/engine';
+import { isRoomCode } from '@mind-racer/protocol';
 import { applyRaceResult, type Profile, type ProgressUpdate } from '../progress/profile';
 import { RaceScreen } from '../race/RaceScreen';
 import { Results } from '../screens/Results';
@@ -13,6 +14,8 @@ interface MultiplayerAppProps {
   /** Called with the updated profile after each finished online race. */
   onProfile: (profile: Profile) => void;
   onExit: () => void;
+  /** Room code from a `?sala=` link: join it right away instead of showing the entry screen (design D1). */
+  autoJoinCode?: string | null;
 }
 
 interface Finished {
@@ -25,15 +28,22 @@ interface Finished {
  * Online play. The server's status for this player picks the screen:
  * not in a room → Entry; racing → RaceScreen; results → Results; otherwise → Lobby.
  */
-export function MultiplayerApp({ session, profile, onProfile, onExit }: MultiplayerAppProps) {
+export function MultiplayerApp({ session, profile, onProfile, onExit, autoJoinCode = null }: MultiplayerAppProps) {
   const view = useSyncExternalStore(session.subscribe, session.getState, session.getState);
   const [finished, setFinished] = useState<Finished | null>(null);
   const reconnecting = view.connection === 'reconnecting';
 
-  // Back from a reload while in a room: rejoin it.
+  // Opened from a room link: join that room (join ignores repeats, e.g. StrictMode effects).
+  // Otherwise, back from a reload while in a room: rejoin it.
+  const joinCode = autoJoinCode !== null && autoJoinCode !== session.resumeCode() ? autoJoinCode : null;
+  const profileForJoin = useRef(profile);
   useEffect(() => {
+    if (joinCode !== null) {
+      if (isRoomCode(joinCode)) session.join(joinCode, profileForJoin.current.name, profileForJoin.current.unlockedLevel);
+      return;
+    }
     if (session.canResume() && !session.getState().playerId) session.resume();
-  }, [session]);
+  }, [session, joinCode]);
 
   // Apply progress as soon as the server sends results, whatever screen is showing:
   // the `room` update that follows can unmount the race screen before it reports the finish.
@@ -78,6 +88,7 @@ export function MultiplayerApp({ session, profile, onProfile, onExit }: Multipla
         pending={view.pending}
         error={view.error?.message ?? null}
         offlineSince={view.offlineSince}
+        initialCode={autoJoinCode ?? undefined}
         onCreate={() => session.create(profile.name, profile.unlockedLevel)}
         onJoin={(code) => session.join(code, profile.name, profile.unlockedLevel)}
         onBack={() => {
