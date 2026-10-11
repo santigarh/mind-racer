@@ -37,9 +37,9 @@
 
 ## 7. Despliegue (con el usuario)
 
-- [ ] 7.1 Usuario: crear la cuenta de Render, crear el Blueprint desde el repo (elegir región y nombre) y definir `ALLOWED_ORIGINS` provisional; verificar con `curl https://<servicio>.onrender.com/health` que responde 200, aplicando el plan B de D6 si el build falla por pnpm
+- [x] 7.1 Usuario: crear la cuenta de Render, crear el Blueprint desde el repo (elegir región y nombre) y definir `ALLOWED_ORIGINS` provisional; verificar con `curl https://<servicio>.onrender.com/health` que responde 200, aplicando el plan B de D6 si el build falla por pnpm
 - [ ] 7.2 Usuario: crear el Worker de Cloudflare desde el repo con la configuración de D5 (`apps/web/wrangler.jsonc`, root `apps/web`, build con pnpm, `VITE_SERVER_URL=wss://<servicio>.onrender.com` como variable de build); verificar con `wrangler deploy --dry-run` en local, y luego que la página carga y que el modo solo funciona
-- [ ] 7.3 Ajustar `ALLOWED_ORIGINS` a la URL definitiva del Worker (`*.workers.dev`); verificar que crear una sala desde el sitio funciona y que una conexión desde otro origen recibe 403
+- [x] 7.3 Ajustar `ALLOWED_ORIGINS` a la URL definitiva del Worker (`*.workers.dev`); verificar que crear una sala desde el sitio funciona y que una conexión desde otro origen recibe 403
 - [ ] 7.4 Prueba final del usuario desde un celular fuera del wifi de casa y desde otro dispositivo: crear sala, unirse por código, carrera completa y aviso de servidor despertando tras más de 15 minutos sin uso
 
 ## Workflow follow-up
