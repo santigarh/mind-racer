@@ -19,11 +19,18 @@ export class TestClient {
     });
   }
 
-  static connect(port: number): Promise<TestClient> {
-    const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+  static connect(port: number, options: { origin?: string; headers?: Record<string, string> } = {}): Promise<TestClient> {
+    const socket = new WebSocket(`ws://127.0.0.1:${port}`, {
+      ...(options.origin ? { origin: options.origin } : {}),
+      ...(options.headers ? { headers: options.headers } : {}),
+    });
     return new Promise((resolve, reject) => {
       socket.once('open', () => resolve(new TestClient(socket)));
       socket.once('error', reject);
+      socket.once('unexpected-response', (req, res) => {
+        req.destroy();
+        reject(new Error(`HTTP ${res.statusCode}`));
+      });
     });
   }
 

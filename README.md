@@ -14,6 +14,8 @@ apps/server         Servidor multijugador (Node + WebSockets), salas en memoria
 openspec/           Planificación con OpenSpec (specs y cambios)
 ```
 
+Juega en línea: la web se publica en Cloudflare Pages y el servidor multijugador en Render (ver [Publicar en internet](#publicar-en-internet)).
+
 ## Requisitos
 
 - Node.js 22+
@@ -29,6 +31,7 @@ pnpm dev:server   # solo el servidor
 pnpm test         # corre las pruebas de todos los paquetes
 pnpm typecheck    # verifica tipos en todos los paquetes
 pnpm build        # compila todo
+pnpm --filter server build:prod   # empaqueta el servidor en apps/server/dist/main.js (lo que corre en Render)
 ```
 
 Para un solo paquete: `pnpm --filter @mind-racer/engine test`, `pnpm --filter server test` o `pnpm --filter web dev`.
@@ -43,7 +46,7 @@ Para un solo paquete: `pnpm --filter @mind-racer/engine test`, `pnpm --filter se
    Los carriles libres se completan con bots.
 
 La app se conecta sola al servidor de la misma computadora que la sirvió (puerto 8787). Para usar otro servidor,
-define `VITE_SERVER_URL`, por ejemplo `VITE_SERVER_URL=ws://192.168.1.50:8787`. El servidor acepta `PORT` y `HOST`.
+define `VITE_SERVER_URL`, por ejemplo `VITE_SERVER_URL=ws://192.168.1.50:8787`.
 
 ### Si los celulares no pueden entrar (Windows)
 
@@ -54,3 +57,60 @@ La primera vez, Windows puede bloquear las conexiones entrantes a Node:
   **Node.js JavaScript Runtime** y marca la casilla **Privada**.
 - Verifica que tu red wifi esté configurada como **privada** (Configuración → Red e Internet → propiedades del wifi).
 - Las direcciones de adaptadores virtuales (VirtualBox, WSL, VPN) no sirven para los celulares: usa la del wifi.
+
+## Publicar en internet
+
+La web va en **Cloudflare Pages** (gratis, siempre disponible) y el servidor multijugador en **Render** (plan gratis).
+Ambos se actualizan solos con cada push a `main`. Render espera a que pasen las pruebas de GitHub Actions.
+
+```
+jugador --https--> Cloudflare Pages (menú y modo solo: siempre al instante)
+   |
+   +-----wss-----> Render (solo "Jugar con amigos")
+```
+
+### Qué esperar del plan gratis de Render
+
+- Se duerme tras **15 minutos** sin conexiones ni mensajes. Mientras alguien juega, los mensajes lo mantienen despierto.
+- Despertarlo tarda **alrededor de un minuto**. La app muestra "Despertando el servidor, puede tardar hasta un minuto" y entra sola a la sala.
+- Las salas viven en memoria: un despliegue o un reinicio las cierra. Evita hacer push durante una partida.
+
+### Variables del servidor
+
+| Variable | Para qué | Valor en Render |
+|---|---|---|
+| `PORT` | Puerto de HTTP y WebSocket | Lo define Render |
+| `HOST` | Interfaz donde escucha | `0.0.0.0` (por defecto) |
+| `ALLOWED_ORIGINS` | Sitios que pueden conectarse, separados por comas | La URL de Pages, p. ej. `https://mind-racer.pages.dev` |
+| `TRUST_PROXY_HOPS` | Proxies delante del servidor (para el límite de salas por IP) | `1` |
+
+Sin `ALLOWED_ORIGINS` el servidor acepta cualquier origen, como en la red local. `GET /health` responde `{"status":"ok","rooms":n}`.
+
+### Pasos (una sola vez)
+
+1. **GitHub:** el código debe estar en un repositorio (por ejemplo `santigarh/mind-racer`).
+2. **Render, el servidor:**
+   1. Crea una cuenta en [render.com](https://render.com) e inicia sesión con GitHub.
+   2. *New → Blueprint* y elige el repositorio. Render lee `render.yaml`: servicio `mind-racer-server`, plan gratis, región `virginia`.
+      Si prefieres otra región (`oregon`, `ohio`, `frankfurt`, `singapore`), cámbiala en `render.yaml` **antes** de este paso, porque después no se puede cambiar.
+   3. Cuando pida `ALLOWED_ORIGINS`, escribe por ahora `https://mind-racer.pages.dev` (se ajusta en el paso 4).
+   4. Al terminar, abre `https://<nombre-del-servicio>.onrender.com/health`; debe responder `{"status":"ok",...}`.
+3. **Cloudflare Pages, la web:**
+   1. Crea una cuenta en [dash.cloudflare.com](https://dash.cloudflare.com).
+   2. *Workers & Pages → Create → Pages → Connect to Git* y elige el repositorio.
+   3. Configuración del build:
+      - Build command: `corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build`
+      - Build output directory: `apps/web/dist`
+      - Variables de entorno: `NODE_VERSION` = `22` y `VITE_SERVER_URL` = `wss://<nombre-del-servicio>.onrender.com`
+   4. Al terminar, Pages te da la URL definitiva (por ejemplo `https://mind-racer.pages.dev`).
+4. **Ajustar el origen:** en Render, *Environment*, pon en `ALLOWED_ORIGINS` la URL exacta de Pages y guarda; Render se redespliega solo.
+5. **Probar:** abre la URL de Pages desde el celular **con datos móviles**, crea una sala y únete desde otro dispositivo con el código.
+
+### Si el build falla por pnpm
+
+Ambas plataformas instalan pnpm con `corepack enable` según `packageManager` en `package.json`. Si alguna no reconoce esa versión,
+cambia en su build command `corepack enable` por `npm i -g pnpm@12.10.1`.
+
+## Licencia
+
+[MIT](LICENSE)

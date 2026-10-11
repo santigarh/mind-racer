@@ -1,0 +1,25 @@
+# Render Blueprint: the multiplayer server (spec server-operations, design D4).
+# The web app is published separately on Cloudflare Pages.
+services:
+  - type: web
+    name: mind-racer-server
+    runtime: node
+    plan: free
+    # Closest available region to Latin America. It cannot be changed after the service exists.
+    region: virginia
+    # Rooms live in memory: exactly one instance, never autoscaled.
+    numInstances: 1
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter server build:prod
+    startCommand: node apps/server/dist/main.js
+    healthCheckPath: /health
+    # Deploy only after the GitHub Actions checks pass.
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Render's proxy appends the client IP to X-Forwarded-For.
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      # Comma-separated origins allowed to open the WebSocket, e.g. https://mind-racer.pages.dev
+      - key: ALLOWED_ORIGINS
+        sync: false

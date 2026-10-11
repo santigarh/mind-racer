@@ -12,6 +12,8 @@ export interface RoomManagerOptions {
   raceConfig?: Partial<RaceConfig>;
 }
 
+const TOO_MANY_ROOMS_TEXT = 'Creaste muchas salas seguidas; espera unos minutos';
+
 const ERROR_TEXT: Record<ErrorCode, string> = {
   'room-not-found': 'No encontramos esa sala',
   'room-full': 'La sala está llena',
@@ -27,6 +29,9 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
 export class RoomManager {
   private readonly rooms = new Map<string, Room>();
   private readonly bindings = new Map<Connection, { room: Room; playerId: string } | null>();
+  private readonly ips = new Map<Connection, string>();
+  /** Creation times of recent rooms, per client IP. */
+  private readonly createdByIp = new Map<string, number[]>();
   private readonly emptySince = new Map<string, number>();
   private readonly now: () => number;
   private readonly random: () => number;
@@ -50,14 +55,16 @@ export class RoomManager {
     return this.rooms.get(code);
   }
 
-  connect(conn: Connection): void {
+  connect(conn: Connection, info: { ip?: string } = {}): void {
     this.bindings.set(conn, null);
+    if (info.ip) this.ips.set(conn, info.ip);
   }
 
   disconnect(conn: Connection): void {
     const binding = this.bindings.get(conn);
     binding?.room.disconnect(binding.playerId);
     this.bindings.delete(conn);
+    this.ips.delete(conn);
   }
 
   message(conn: Connection, raw: unknown): void {
@@ -70,6 +77,7 @@ export class RoomManager {
       case 'create': {
         this.leaveCurrent(conn);
         if (this.rooms.size >= this.maxRooms) return this.error(conn, 'too-many-rooms');
+        if (!this.allowRoomFrom(this.ips.get(conn))) return this.error(conn, 'rate-limited', TOO_MANY_ROOMS_TEXT);
         const room = this.createRoom();
         return this.bind(conn, room, room.join(conn, message.name, message.level));
       }
@@ -97,6 +105,11 @@ export class RoomManager {
   /** Drives every room and closes rooms nobody has been connected to for a while. */
   tick(): void {
     const now = this.now();
+    for (const [ip, times] of this.createdByIp) {
+      const recent = times.filter((t) => now - t < ROOM_LIMITS.roomsPerIpWindowMs);
+      if (recent.length === 0) this.createdByIp.delete(ip);
+      else this.createdByIp.set(ip, recent);
+    }
     for (const [code, room] of this.rooms) {
       room.tick();
       if (room.connectedCount > 0) {
@@ -110,6 +123,20 @@ export class RoomManager {
         this.emptySince.delete(code);
       }
     }
+  }
+
+  /** Sliding window of room creations per IP; records this one when allowed. */
+  private allowRoomFrom(ip: string | undefined): boolean {
+    if (!ip) return true;
+    const now = this.now();
+    const recent = (this.createdByIp.get(ip) ?? []).filter((t) => now - t < ROOM_LIMITS.roomsPerIpWindowMs);
+    if (recent.length >= ROOM_LIMITS.roomsPerIp) {
+      this.createdByIp.set(ip, recent);
+      return false;
+    }
+    recent.push(now);
+    this.createdByIp.set(ip, recent);
+    return true;
   }
 
   private createRoom(): Room {

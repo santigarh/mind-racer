@@ -14,12 +14,16 @@ export interface MultiplayerView {
   race: NetworkRaceController | null;
   /** A create/join/rejoin was sent and no answer arrived yet. */
   pending: boolean;
+  /** When the connection stopped being open (or the first attempt began); null while open. */
+  offlineSince: number | null;
 }
 
 export interface MultiplayerSessionOptions {
   client?: NetClient;
   /** For tests: controls the race loop and clock. */
   raceOptions?: { now?: () => number; autoLoop?: boolean };
+  /** Wall clock for `offlineSince`. */
+  now?: () => number;
 }
 
 /**
@@ -29,6 +33,7 @@ export interface MultiplayerSessionOptions {
 export class MultiplayerSession {
   readonly client: NetClient;
   private readonly raceOptions: MultiplayerSessionOptions['raceOptions'];
+  private readonly now: () => number;
   private readonly listeners = new Set<() => void>();
   private readonly unsubscribe: Array<() => void>;
   private view: MultiplayerView;
@@ -36,10 +41,24 @@ export class MultiplayerSession {
   constructor(options: MultiplayerSessionOptions = {}) {
     this.client = options.client ?? new NetClient({ url: serverUrl() });
     this.raceOptions = options.raceOptions;
-    this.view = { connection: this.client.status, playerId: null, room: null, error: null, race: null, pending: false };
+    this.now = options.now ?? (() => Date.now());
+    this.view = {
+      connection: this.client.status,
+      playerId: null,
+      room: null,
+      error: null,
+      race: null,
+      pending: false,
+      offlineSince: null,
+    };
     this.unsubscribe = [
       this.client.onMessage((m) => this.receive(m)),
-      this.client.onStatus((connection) => this.update({ connection })),
+      this.client.onStatus((connection) =>
+        this.update({
+          connection,
+          offlineSince: connection === 'open' ? null : (this.view.offlineSince ?? this.now()),
+        }),
+      ),
     ];
   }
 

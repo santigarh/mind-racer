@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NetClient, RECONNECT_DELAYS_MS, SESSION_KEY, serverUrl } from './NetClient';
+import { CONNECT_TIMEOUT_MS, NetClient, RECONNECT_DELAYS_MS, SESSION_KEY, serverUrl } from './NetClient';
 import { fakeNetwork } from './fakeSocket';
 import type { ServerMessage } from '@mind-racer/protocol';
 
@@ -113,6 +113,32 @@ describe('NetClient', () => {
     net.socket.receive(joined);
     net.socket.receive({ type: 'error', code: 'rejoin-failed', message: 'No pudimos volver a la sala' });
     expect(client.storedSession()).toBeNull();
+  });
+
+  it('conexión que no responde: a los 10 s se abandona y se reintenta', () => {
+    const { net, client } = setup();
+    client.connect();
+    client.send({ type: 'create', name: 'Ana', level: 2 });
+    const stuck = net.socket;
+    expect(net.timers.map((t) => t.ms)).toEqual([CONNECT_TIMEOUT_MS]);
+    net.runTimer(); // pasan 10 s sin open ni close
+    expect(stuck.readyState).toBe(3);
+    expect(client.status).toBe('reconnecting');
+    expect(net.timers.map((t) => t.ms)).toEqual([RECONNECT_DELAYS_MS[0]]);
+    net.runTimer();
+    expect(net.sockets).toHaveLength(2);
+    // Si el socket viejo se cierra tarde, no dispara otro reintento.
+    stuck.onclose?.({});
+    net.socket.open();
+    expect(net.socket.sent).toEqual([{ type: 'create', name: 'Ana', level: 2 }]);
+    expect(net.timers).toHaveLength(0);
+  });
+
+  it('un socket que abre a tiempo cancela el tiempo máximo', () => {
+    const { net, client } = setup();
+    client.connect();
+    net.socket.open();
+    expect(net.timers).toHaveLength(0);
   });
 
   it('close() no reconecta', () => {

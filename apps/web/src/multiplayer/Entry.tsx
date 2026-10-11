@@ -1,25 +1,31 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { ArrowLeft, Plus, SignIn } from '@phosphor-icons/react';
 import { ROOM_CODE_LENGTH, isRoomCode, normalizeRoomCode } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
 import styles from './Multiplayer.module.css';
 
+/** After this long without a connection, assume the free server is waking up. */
+export const WAKING_AFTER_MS = 5000;
+
 interface EntryProps {
   pending: boolean;
   error: string | null;
-  reconnecting: boolean;
+  /** When the connection stopped being open; null while open. */
+  offlineSince: number | null;
   onCreate: () => void;
   onJoin: (code: string) => void;
   onBack: () => void;
 }
 
 /** "Jugar con amigos": create a room or join one with its code. */
-export function Entry({ pending, error, reconnecting, onCreate, onJoin, onBack }: EntryProps) {
+export function Entry({ pending, error, offlineSince, onCreate, onJoin, onBack }: EntryProps) {
   const codeId = useId();
   const errorId = useId();
   const [code, setCode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const shownError = localError ?? error;
+  const connecting = pending && offlineSince !== null;
+  const waking = useElapsed(connecting ? offlineSince : null, WAKING_AFTER_MS);
 
   const join = (event: FormEvent) => {
     event.preventDefault();
@@ -48,7 +54,11 @@ export function Entry({ pending, error, reconnecting, onCreate, onJoin, onBack }
         <p className={styles.lead}>Crea una sala y comparte el código, o escribe el código que te pasaron.</p>
       </section>
 
-      {reconnecting && <p className={styles.banner} role="status">Conectando con el servidor…</p>}
+      {connecting && (
+        <p className={styles.banner} role="status">
+          {waking ? 'Despertando el servidor, puede tardar hasta un minuto' : 'Conectando con el servidor…'}
+        </p>
+      )}
 
       <div className={styles.entryGrid}>
         <section className={styles.card} aria-labelledby="create-title">
@@ -98,4 +108,24 @@ export function Entry({ pending, error, reconnecting, onCreate, onJoin, onBack }
       </div>
     </main>
   );
+}
+
+/** True once `ms` have passed since `since` (re-renders when the moment arrives). */
+function useElapsed(since: number | null, ms: number): boolean {
+  const [elapsed, setElapsed] = useState(false);
+  useEffect(() => {
+    if (since === null) {
+      setElapsed(false);
+      return;
+    }
+    const remaining = since + ms - Date.now();
+    if (remaining <= 0) {
+      setElapsed(true);
+      return;
+    }
+    setElapsed(false);
+    const timer = setTimeout(() => setElapsed(true), remaining);
+    return () => clearTimeout(timer);
+  }, [since, ms]);
+  return elapsed;
 }

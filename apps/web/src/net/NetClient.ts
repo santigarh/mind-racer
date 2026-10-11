@@ -33,6 +33,8 @@ export const SESSION_KEY = 'mind-racer:session';
 const OPEN = 1;
 /** Waits between reconnection attempts (design.md D8). */
 export const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 5000] as const;
+/** A socket that neither opens nor closes in this time is abandoned and retried. */
+export const CONNECT_TIMEOUT_MS = 10_000;
 
 /** Server URL: VITE_SERVER_URL, or the same host that served the page on port 8787. */
 export function serverUrl(
@@ -66,6 +68,7 @@ export class NetClient {
   private statusValue: ConnectionStatus = 'idle';
   private attempt = 0;
   private timer: unknown = null;
+  private connectTimer: unknown = null;
   private queue: ClientMessage[] = [];
   private readonly messageListeners = new Set<(message: ServerMessage) => void>();
   private readonly statusListeners = new Set<(status: ConnectionStatus) => void>();
@@ -126,6 +129,7 @@ export class NetClient {
   /** Closes for good: no reconnection. */
   close(): void {
     this.setStatus('closed');
+    this.clearConnectTimer();
     if (this.timer !== null) this.clearTimer(this.timer);
     this.timer = null;
     const socket = this.socket;
@@ -142,7 +146,16 @@ export class NetClient {
     this.setStatus(status);
     const socket = this.createSocket(this.url);
     this.socket = socket;
+    this.connectTimer = this.setTimer(() => {
+      this.connectTimer = null;
+      if (this.socket !== socket || socket.readyState === OPEN) return;
+      // Stuck (e.g. a sleeping server that never answers): drop it and retry.
+      socket.onclose = null;
+      socket.close();
+      this.lost();
+    }, CONNECT_TIMEOUT_MS);
     socket.onopen = () => {
+      this.clearConnectTimer();
       const reconnecting = this.statusValue === 'reconnecting';
       this.attempt = 0;
       this.setStatus('open');
@@ -176,7 +189,13 @@ export class NetClient {
     for (const listener of this.messageListeners) listener(message);
   }
 
+  private clearConnectTimer(): void {
+    if (this.connectTimer !== null) this.clearTimer(this.connectTimer);
+    this.connectTimer = null;
+  }
+
   private lost(): void {
+    this.clearConnectTimer();
     this.socket = null;
     if (this.statusValue === 'closed') return;
     const delay = RECONNECT_DELAYS_MS[Math.min(this.attempt, RECONNECT_DELAYS_MS.length - 1)]!;

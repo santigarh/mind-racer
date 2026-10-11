@@ -77,7 +77,7 @@ export function MultiplayerApp({ session, profile, onProfile, onExit }: Multipla
       <Entry
         pending={view.pending}
         error={view.error?.message ?? null}
-        reconnecting={reconnecting && view.pending}
+        offlineSince={view.offlineSince}
         onCreate={() => session.create(profile.name, profile.unlockedLevel)}
         onJoin={(code) => session.join(code, profile.name, profile.unlockedLevel)}
         onBack={() => {

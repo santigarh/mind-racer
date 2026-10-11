@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { act, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { NetRunnerResult, RoomPlayer, ServerMessage } from '@mind-racer/protocol';
 import { App } from '../App';
@@ -274,5 +274,65 @@ describe('Carrera multijugador', () => {
     const ctx = setup();
     act(() => ctx.net.socket.open());
     expect(ctx.sent()).toEqual([{ type: 'rejoin', code: 'K7QF', token: 't' }]);
+  });
+});
+
+describe('servidor despertando', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function pressCreate() {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const ctx = setup(2);
+    fireEvent.click(screen.getByRole('button', { name: /jugar con amigos/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /crear sala/i })[0]!);
+    return ctx;
+  }
+
+  it('servidor dormido: "Conectando…", a los 5 s "Despertando…", y entra al lobby sin volver a pulsar', async () => {
+    const ctx = await pressCreate();
+    expect(screen.getByText('Conectando con el servidor…')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(4900);
+    });
+    expect(screen.queryByText(/Despertando el servidor/)).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(screen.getByText('Despertando el servidor, puede tardar hasta un minuto')).toBeInTheDocument();
+
+    // El servidor despierta a los 40 s: la creación en cola se envía sola.
+    act(() => {
+      vi.advanceTimersByTime(35_000);
+      ctx.net.socket.open();
+    });
+    expect(ctx.sent()).toEqual([{ type: 'create', name: 'Lucía', level: 2 }]);
+    ctx.server({ type: 'joined', code: 'K7QF', playerId: 'p1', token: 't' }, room([player('p1', 'Lucía', 2)], { hostId: 'p1' }));
+    expect(screen.getByTestId('room-code')).toHaveTextContent('K7QF');
+    expect(screen.queryByText(/Despertando el servidor/)).not.toBeInTheDocument();
+  });
+
+  it('servidor despierto: responde antes de 5 s y no aparece el aviso', async () => {
+    const ctx = await pressCreate();
+    act(() => {
+      vi.advanceTimersByTime(800);
+      ctx.net.socket.open();
+    });
+    ctx.server({ type: 'joined', code: 'K7QF', playerId: 'p1', token: 't' }, room([player('p1', 'Lucía', 2)], { hostId: 'p1' }));
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.queryByText(/Despertando el servidor/)).not.toBeInTheDocument();
+    expect(screen.getByTestId('room-code')).toHaveTextContent('K7QF');
+  });
+
+  it('el aviso aparece también si la conexión se cae y reintenta antes de unirse', async () => {
+    const ctx = await pressCreate();
+    act(() => {
+      ctx.net.socket.drop();
+      vi.advanceTimersByTime(6000);
+    });
+    expect(screen.getByText('Despertando el servidor, puede tardar hasta un minuto')).toBeInTheDocument();
   });
 });

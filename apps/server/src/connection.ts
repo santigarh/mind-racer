@@ -15,4 +15,7 @@ export const ROOM_LIMITS = Object.freeze({
   rttSmoothing: 0.3,
   answersPerSecond: 20,
   maxRooms: 200,
+  /** New rooms one IP may create per window (spec server-operations). */
+  roomsPerIp: 5,
+  roomsPerIpWindowMs: 10 * 60_000,
 });
