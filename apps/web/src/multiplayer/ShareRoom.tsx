@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ShareNetwork } from '@phosphor-icons/react';
 import { Button } from '../ui/Button';
+import { canShareOrCopy, shareOrCopy } from '../ui/share';
 import { RoomQr } from './RoomQr';
 import { roomLink } from './roomLink';
 import styles from './Multiplayer.module.css';
@@ -16,8 +17,6 @@ type Status = 'idle' | 'copied' | 'copy-failed';
 export function ShareRoom({ code }: { code: string }) {
   const url = roomLink(code);
   const [status, setStatus] = useState<Status>('idle');
-  const canShare = typeof navigator.share === 'function';
-  const canCopy = typeof navigator.clipboard?.writeText === 'function';
 
   useEffect(() => {
     if (status !== 'copied') return;
@@ -25,26 +24,10 @@ export function ShareRoom({ code }: { code: string }) {
     return () => clearTimeout(timer);
   }, [status]);
 
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(url);
-      setStatus('copied');
-    } catch {
-      setStatus('copy-failed');
-    }
-  }
-
   async function share() {
-    if (canShare) {
-      try {
-        await navigator.share({ title: 'Mind Racer', text: `¡Ven a correr conmigo! Sala ${code}`, url });
-        return;
-      } catch (error) {
-        if ((error as Error)?.name === 'AbortError') return; // The person closed the menu.
-        if (!canCopy) return;
-      }
-    }
-    await copy();
+    const outcome = await shareOrCopy({ title: 'Mind Racer', text: `¡Ven a correr conmigo! Sala ${code}`, url }, url);
+    if (outcome === 'copied') setStatus('copied');
+    if (outcome === 'failed') setStatus('copy-failed');
   }
 
   return (
@@ -59,7 +42,7 @@ export function ShareRoom({ code }: { code: string }) {
           aria-label="Enlace de la sala"
           onFocus={(e) => e.currentTarget.select()}
         />
-        {(canShare || canCopy) && (
+        {canShareOrCopy() && (
           <Button variant="secondary" onClick={share}>
             <ShareNetwork size={20} aria-hidden />
             Compartir

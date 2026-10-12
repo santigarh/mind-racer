@@ -21,10 +21,11 @@ export class DifficultyController {
   private fastStreak = 0;
   private window: boolean[] = [];
 
-  constructor(baseLevel: number) {
+  /** With `adaptive: false` the range collapses to the base level: answers never change it. */
+  constructor(baseLevel: number, { adaptive = true }: { adaptive?: boolean } = {}) {
     this.baseLevel = clamp(Math.round(baseLevel), MIN_LEVEL, MAX_LEVEL);
-    this.minLevel = Math.max(MIN_LEVEL, this.baseLevel - DIFFICULTY_RULES.levelsBelow);
-    this.maxLevel = Math.min(MAX_LEVEL, this.baseLevel + DIFFICULTY_RULES.levelsAbove);
+    this.minLevel = adaptive ? Math.max(MIN_LEVEL, this.baseLevel - DIFFICULTY_RULES.levelsBelow) : this.baseLevel;
+    this.maxLevel = adaptive ? Math.min(MAX_LEVEL, this.baseLevel + DIFFICULTY_RULES.levelsAbove) : this.baseLevel;
     this.current = this.baseLevel;
     this.highest = this.baseLevel;
   }

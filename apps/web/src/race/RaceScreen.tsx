@@ -22,11 +22,15 @@ interface RaceScreenProps {
   controller: RaceViewSource;
   onFinish: (snapshot: RaceSnapshot) => void;
   onAbandon: () => void;
+  /** Header title; "Carrera · nivel N" by default. */
+  title?: string;
+  /** Exit dialog text for a local race, when it differs from the default. */
+  exitNote?: string;
   /** Injected sound and vibration, for tests. */
   feedback?: Omit<RaceFeedbackOptions, 'enabled'>;
 }
 
-export function RaceScreen({ controller, onFinish, onAbandon, feedback }: RaceScreenProps) {
+export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, feedback }: RaceScreenProps) {
   const state = useRaceController(controller);
   const { sound } = useSettings();
   useRaceFeedback(state, controller.playerId, { ...feedback, enabled: sound });
@@ -89,7 +93,7 @@ export function RaceScreen({ controller, onFinish, onAbandon, feedback }: RaceSc
   return (
     <main id="main" className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>Carrera · nivel {snapshot.level}</h1>
+        <h1 className={styles.title}>{title ?? `Carrera · nivel ${snapshot.level}`}</h1>
         <div className={styles.headerActions}>
           <SoundToggle />
           <Button variant="ghost" size="small" onClick={openExit} disabled={finished}>
@@ -160,7 +164,7 @@ export function RaceScreen({ controller, onFinish, onAbandon, feedback }: RaceSc
             <p className={styles.dialogText}>
               {online
                 ? 'Tu auto quedará detenido y esta carrera no contará para tus estadísticas ni desbloqueos.'
-                : 'Esta carrera no contará para tus estadísticas ni desbloqueos.'}
+                : (exitNote ?? 'Esta carrera no contará para tus estadísticas ni desbloqueos.')}
             </p>
             <div className={styles.dialogActions}>
               <Button variant="secondary" onClick={onAbandon}>

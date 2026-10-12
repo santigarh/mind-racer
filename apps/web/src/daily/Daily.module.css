@@ -1,0 +1,160 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-100);
+  margin-bottom: var(--s-300);
+  padding: var(--s-300);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--r-3xl);
+  background: var(--surface);
+  animation: rise 800ms var(--ease) 100ms both;
+}
+
+.card[data-done='false'] {
+  border-color: var(--accent);
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-50);
+}
+
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-75);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--accent);
+}
+
+.title {
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.lead,
+.next {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-muted);
+}
+
+.streak {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-75);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.best {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-75);
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.summary {
+  font-family: var(--font-mono);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-100);
+  margin-top: var(--s-75);
+}
+
+.levelLabel {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-muted);
+}
+
+.select {
+  /* A long option must not set the width: the select takes the space it is given. */
+  flex: 1 1 200px;
+  width: 100%;
+  min-width: 0;
+  max-width: 360px;
+  padding: var(--s-75) var(--s-100);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--r-xl);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.select:focus-visible,
+.shareText:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.share {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-75);
+  margin-top: var(--s-75);
+}
+
+.shareText {
+  width: 100%;
+  max-width: 480px;
+  padding: var(--s-75) var(--s-100);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--r-xl);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  resize: none;
+}
+
+.shareStatus {
+  min-height: 20px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ok);
+}
+
+@media (max-width: 640px) {
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .select {
+    flex: none;
+    max-width: none;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(64px);
+    filter: blur(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

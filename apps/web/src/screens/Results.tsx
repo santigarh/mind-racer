@@ -1,11 +1,13 @@
 import type { CSSProperties } from 'react';
-import { ArrowCounterClockwise, House, LockOpen, SignOut, Star, UsersThree } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, Fire, House, LockOpen, SignOut, Star, UsersThree } from '@phosphor-icons/react';
 import type { BotProfileId, RaceSnapshot } from '@mind-racer/engine';
 import type { Presence } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
 import { formatDecimal, formatPercent, formatTime, ordinal } from '../ui/format';
 import type { ProgressUpdate } from '../progress/profile';
 import { PRESENCE_TEXT, laneColor } from '../race/Track';
+import { ShareResult } from '../daily/ShareResult';
+import { streakText } from '../daily/shareText';
 import styles from './Results.module.css';
 
 interface ResultsProps {
@@ -19,6 +21,8 @@ interface ResultsProps {
   onMenu: () => void;
   online?: boolean;
   presence?: Readonly<Record<string, Presence>>;
+  /** Daily challenge: the streak and the text to share; replaces "Correr de nuevo" with "Compartir resultado". */
+  daily?: { streak: number; shareText: string };
 }
 
 export function Results({
@@ -30,6 +34,7 @@ export function Results({
   onMenu,
   online = false,
   presence = {},
+  daily,
 }: ResultsProps) {
   const results = snapshot.results ?? [];
   const me = results.find((r) => r.id === playerId)!;
@@ -42,7 +47,7 @@ export function Results({
   return (
     <main id="main" className={styles.page}>
       <section className={styles.hero} aria-labelledby="results-title">
-        <span className={styles.kicker}>Nivel {snapshot.level}</span>
+        <span className={styles.kicker}>{daily ? `Desafío diario · Nivel ${snapshot.level}` : `Nivel ${snapshot.level}`}</span>
         <h1 id="results-title" className={styles.title}>
           {headline}
         </h1>
@@ -53,8 +58,14 @@ export function Results({
         </p>
       </section>
 
-      {(update.unlockedLevel !== null || highlights.length > 0) && (
+      {(daily || update.unlockedLevel !== null || highlights.length > 0) && (
         <ul className={styles.badges} aria-label="Logros">
+          {daily && (
+            <li className={styles.badge} data-kind="streak">
+              <Fire size={20} weight="fill" aria-hidden />
+              {streakText(daily.streak)}
+            </li>
+          )}
           {update.unlockedLevel !== null && (
             <li className={styles.badge} data-kind="unlock">
               <LockOpen size={20} weight="bold" aria-hidden />
@@ -130,6 +141,9 @@ export function Results({
           {online ? <SignOut size={20} aria-hidden /> : <House size={20} aria-hidden />}
           {online ? 'Salir de la sala' : 'Volver al menú'}
         </Button>
+        {daily ? (
+          <ShareResult text={daily.shareText} size="large" />
+        ) : (
         <Button size="large" onClick={onPlayAgain} autoFocus>
           {online ? (
             <UsersThree size={20} weight="bold" aria-hidden />
@@ -138,6 +152,7 @@ export function Results({
           )}
           {online ? 'Volver a la sala' : 'Correr de nuevo'}
         </Button>
+        )}
       </div>
     </main>
   );

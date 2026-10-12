@@ -3,6 +3,8 @@ import { CarProfile, FlagCheckered, Lock, Timer, Trophy, Gauge, Target, UsersThr
 import { MATH_LEVELS, getLevelDefinition } from '@mind-racer/engine';
 import { Button } from '../ui/Button';
 import { SoundToggle } from '../ui/SoundToggle';
+import { DailyCard } from '../daily/DailyCard';
+import type { DailyData } from '../daily/daily';
 import { formatDecimal, formatPercent, formatTime } from '../ui/format';
 import { UNLOCK_MIN_ACCURACY, isLevelUnlocked, statsFor, type Profile } from '../progress/profile';
 import styles from './Menu.module.css';
@@ -13,9 +15,11 @@ interface MenuProps {
   onStart: (level: number) => void;
   /** Opens "Jugar con amigos". */
   onMultiplayer?: () => void;
+  /** "Desafío de hoy": saved daily data and how to start today's race. */
+  daily?: { data: DailyData; onStart: (level: number) => void };
 }
 
-export function Menu({ profile, initialLevel, onStart, onMultiplayer }: MenuProps) {
+export function Menu({ profile, initialLevel, onStart, onMultiplayer, daily }: MenuProps) {
   const [level, setLevel] = useState(() =>
     initialLevel && isLevelUnlocked(profile, initialLevel) ? initialLevel : profile.unlockedLevel,
   );
@@ -52,6 +56,8 @@ export function Menu({ profile, initialLevel, onStart, onMultiplayer }: MenuProp
           desbloquear el siguiente.
         </p>
       </section>
+
+      {daily && <DailyCard profile={profile} daily={daily.data} onStart={daily.onStart} />}
 
       <div className={styles.layout}>
         <section aria-label="Niveles" className={styles.levels}>

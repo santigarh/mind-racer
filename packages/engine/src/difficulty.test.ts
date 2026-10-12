@@ -20,6 +20,17 @@ describe('DifficultyController', () => {
     expect(new DifficultyController(10)).toMatchObject({ minLevel: 9, maxLevel: 10 });
   });
 
+  it('sin adaptación el rango es solo el nivel elegido', () => {
+    const c = new DifficultyController(4, { adaptive: false });
+    expect(c).toMatchObject({ minLevel: 4, maxLevel: 4 });
+    for (let i = 0; i < 6; i++) fast(c);
+    expect(c.level).toBe(4);
+    wrong(c);
+    wrong(c);
+    expect(c.level).toBe(4);
+    expect(c.maxReached).toBe(4);
+  });
+
   it('sube 1 tras 3 aciertos seguidos rápidos', () => {
     const c = new DifficultyController(4);
     fast(c);
@@ -112,13 +123,13 @@ describe('dificultad adaptativa en el motor', () => {
   };
   const COUNTDOWN = DEFAULT_RACE_CONFIG.countdownMs;
 
-  function setup(level: number) {
+  function setup(level: number, adaptiveDifficulty = true) {
     const race = new Race({
       seed: 3,
       level,
       runners: [{ id: 'p', name: 'P', kind: 'human' }],
       source: levelSource,
-      config: { distance: 1e9 },
+      config: { distance: 1e9, adaptiveDifficulty },
     });
     race.start(0);
     race.advanceTo(COUNTDOWN);
@@ -141,6 +152,20 @@ describe('dificultad adaptativa en el motor', () => {
     race.submitAnswer('p', '0', COUNTDOWN + 1000);
     race.submitAnswer('p', '0', COUNTDOWN + 2000);
     expect(state(race).challenge!.level).toBe(4);
+  });
+
+  it('carrera sin adaptación: una racha rápida no sube el nivel (Racha rápida sin adaptación)', () => {
+    const race = setup(4, false);
+    for (let i = 1; i <= 6; i++) race.submitAnswer('p', '1', COUNTDOWN + i * 1000);
+    expect(state(race).challenge).toMatchObject({ level: 4, prompt: 'nivel 4' });
+  });
+
+  it('carrera sin adaptación: los errores no bajan el nivel (Errores sin adaptación)', () => {
+    const race = setup(4, false);
+    for (let i = 1; i <= 5; i++) race.submitAnswer('p', '0', COUNTDOWN + i * 1000);
+    expect(state(race).challenge!.level).toBe(4);
+    race.advanceTo(COUNTDOWN + DEFAULT_RACE_CONFIG.timeLimitMs);
+    expect(race.snapshot().results![0]!.maxLevel).toBe(4);
   });
 
   it('la clasificación informa el nivel máximo alcanzado', () => {

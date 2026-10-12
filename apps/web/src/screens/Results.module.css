@@ -72,6 +72,10 @@
   color: var(--accent-ink);
 }
 
+.badge[data-kind='streak'] {
+  color: var(--accent);
+}
+
 .stats {
   margin: 0;
   display: grid;

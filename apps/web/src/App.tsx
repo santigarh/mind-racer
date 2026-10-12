@@ -10,13 +10,21 @@ import { Results } from './screens/Results';
 import { MultiplayerApp } from './multiplayer/MultiplayerApp';
 import { MultiplayerSession } from './net/MultiplayerSession';
 import { clearRoomLink, readRoomLink } from './multiplayer/roomLink';
+import { dailySeed, loadDaily, recordDaily, saveDaily, todayKey, type DailyData } from './daily/daily';
+import { dailyShareText } from './daily/shareText';
 
 type Screen =
   | { name: 'onboarding' }
   | { name: 'menu' }
   | { name: 'multiplayer'; session: MultiplayerSession; autoJoinCode?: string | null }
-  | { name: 'race'; controller: LocalRaceController }
-  | { name: 'results'; controller: LocalRaceController; snapshot: RaceSnapshot; update: ProgressUpdate };
+  | { name: 'race'; controller: LocalRaceController; daily?: { dateKey: string } }
+  | {
+      name: 'results';
+      controller: LocalRaceController;
+      snapshot: RaceSnapshot;
+      update: ProgressUpdate;
+      daily?: { streak: number; shareText: string };
+    };
 
 export interface AppProps {
   /** Injectable for tests (fake clock, tiny races). */
@@ -48,6 +56,7 @@ export function App({
     if (linkCode) clearRoomLink();
   }, [linkCode]);
   const [lastLevel, setLastLevel] = useState<number | undefined>(undefined);
+  const [daily, setDaily] = useState<DailyData>(() => loadDaily());
 
   const startRace = useCallback(
     (level: number) => {
@@ -56,6 +65,23 @@ export function App({
       setScreen({ name: 'race', controller: createController({ seed: makeSeed(), level, playerName: profile.name }) });
     },
     [profile, createController, makeSeed],
+  );
+
+  // Today's challenge: the same race for everyone at this level today, without adaptation (design D1, D2).
+  const startDaily = useCallback(
+    (level: number) => {
+      if (!profile) return;
+      const dateKey = todayKey();
+      if (daily.results[dateKey]) return;
+      const controller = createController({
+        seed: dailySeed(dateKey, level),
+        level,
+        playerName: profile.name,
+        config: { adaptiveDifficulty: false },
+      });
+      setScreen({ name: 'race', controller, daily: { dateKey } });
+    },
+    [profile, daily, createController],
   );
 
   if (screen.name === 'onboarding' || !profile) {
@@ -75,11 +101,13 @@ export function App({
   }
 
   if (screen.name === 'race') {
-    const { controller } = screen;
+    const { controller, daily: dailyRace } = screen;
     return (
       <RaceScreen
         key={controller.seed}
         controller={controller}
+        title={dailyRace ? `Desafío diario · nivel ${controller.level}` : undefined}
+        exitNote={dailyRace ? 'Esta carrera no contará y podrás intentar el desafío de nuevo hoy.' : undefined}
         onAbandon={() => {
           controller.dispose();
           setScreen({ name: 'menu' });
@@ -98,7 +126,26 @@ export function App({
           });
           saveProfile(update.profile);
           setProfile(update.profile);
-          setScreen({ name: 'results', controller, snapshot, update });
+          if (!dailyRace) return setScreen({ name: 'results', controller, snapshot, update });
+          // The day it started counts, even if midnight passed during the race (design D4).
+          const result = {
+            level: snapshot.level,
+            position: mine.position,
+            finished: mine.finished,
+            finishTimeMs: mine.finishTimeMs,
+            correct: mine.correct,
+            wrong: mine.wrong,
+          };
+          const recorded = recordDaily(daily, dailyRace.dateKey, result);
+          saveDaily(recorded);
+          setDaily(recorded);
+          setScreen({
+            name: 'results',
+            controller,
+            snapshot,
+            update,
+            daily: { streak: recorded.streak, shareText: dailyShareText(dailyRace.dateKey, result, recorded.streak) },
+          });
         }}
       />
     );
@@ -111,6 +158,7 @@ export function App({
         playerId={screen.controller.playerId}
         botProfiles={screen.controller.getState().botProfiles}
         update={screen.update}
+        daily={screen.daily}
         onPlayAgain={() => startRace(screen.snapshot.level)}
         onMenu={() => setScreen({ name: 'menu' })}
       />
@@ -138,6 +186,7 @@ export function App({
       initialLevel={lastLevel}
       onStart={startRace}
       onMultiplayer={() => setScreen({ name: 'multiplayer', session: createMultiplayerSession() })}
+      daily={{ data: daily, onStart: startDaily }}
     />
   );
 }

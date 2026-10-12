@@ -72,6 +72,18 @@ El botón del altavoz (en el menú, la sala y la carrera) silencia todo y el jue
   navegador; súbele el volumen o desactiva el modo silencio. Safari no permite vibrar, así que ahí no hay vibración.
 - El sonido empieza con el primer toque o tecla: los navegadores no dejan reproducir audio antes.
 
+### Desafío de hoy
+
+Cada día el menú ofrece un desafío: una carrera contra bots que es **la misma para todos los que la corren ese día en el
+mismo nivel**, en cualquier celular. Se juega una vez por día y cuenta como una carrera normal para estadísticas y desbloqueos.
+
+- El desafío cambia a la medianoche según la hora de cada dispositivo.
+- Para comparar entre ustedes, corran el mismo nivel: los adultos pueden elegir el nivel de los niños en la tarjeta.
+- La **racha** suma un día cada vez que terminas el desafío, sin importar el puesto. Si un día no juegas, vuelve a empezar.
+- Si sales a mitad de la carrera, no cuenta y puedes intentarlo de nuevo ese día.
+- **Compartir resultado** envía algo como `Mind Racer · Desafío del 11 oct · Nivel 3 · 🏁 1.º · 0:42,3 · 18/20 · 🔥 Racha de 5 días`
+  al grupo de la familia. Todo se guarda solo en el dispositivo; no hay tabla en el servidor.
+
 ## Publicar en internet
 
 La web va en **Cloudflare Workers** como sitio estático (gratis, siempre disponible) y el servidor multijugador en **Render** (plan gratis).

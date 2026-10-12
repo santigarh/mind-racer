@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_RACE_CONFIG } from './config';
-import { RaceSession } from './session';
+import { hashSeed } from './rng';
+import { LocalRaceSession, PLAYER_ID, RaceSession } from './session';
 
 const COUNTDOWN = DEFAULT_RACE_CONFIG.countdownMs;
 
@@ -101,5 +102,58 @@ describe('RaceSession con varias personas y bots', () => {
     expect(session.race.phase).toBe('finished');
     expect(hija.finished).toBe(false);
     expect(hija.distance).toBe(0);
+  });
+});
+
+describe('desafío diario: misma carrera para todos', () => {
+  const daily = () =>
+    new LocalRaceSession({
+      seed: hashSeed('daily', '2026-10-11', 3),
+      level: 3,
+      playerName: 'Ana',
+      config: { adaptiveDifficulty: false },
+    });
+
+  /** Plays to the end; `answer` decides what to type for each challenge. Returns prompts seen and bot times. */
+  function play(answer: (expected: string, i: number) => string) {
+    const session = daily();
+    session.start(0);
+    const prompts: string[] = [];
+    for (let t = COUNTDOWN + 700, i = 0; t <= COUNTDOWN + DEFAULT_RACE_CONFIG.timeLimitMs; t += 700, i++) {
+      session.advanceTo(t);
+      if (session.snapshot().phase === 'finished') break;
+      const challenge = session.race.peekChallenge(PLAYER_ID);
+      if (!challenge) continue;
+      prompts.push(challenge.prompt);
+      session.submit(answer(challenge.answer, i), t);
+    }
+    session.advanceTo(COUNTDOWN + DEFAULT_RACE_CONFIG.timeLimitMs);
+    const bots = session
+      .snapshot()
+      .results!.filter((r) => r.kind === 'bot')
+      .map((r) => [r.id, r.finishTimeMs]);
+    return { prompts, bots };
+  }
+
+  it('jugadores que responden distinto reciben los mismos desafíos y los mismos bots', () => {
+    const perfect = play((expected) => expected);
+    const shaky = play((expected, i) => (i % 3 === 1 ? `${expected}9` : expected));
+    const n = Math.min(perfect.prompts.length, shaky.prompts.length);
+    expect(n).toBeGreaterThan(15);
+    expect(shaky.prompts.slice(0, n)).toEqual(perfect.prompts.slice(0, n));
+    expect(shaky.bots).toEqual(perfect.bots);
+    expect(perfect.bots.some(([, time]) => time !== null)).toBe(true);
+  });
+
+  it('otro día u otro nivel dan otra carrera', () => {
+    const first = (seed: number, level: number) => {
+      const s = new LocalRaceSession({ seed, level, playerName: 'Ana', config: { adaptiveDifficulty: false } });
+      s.start(0);
+      s.advanceTo(COUNTDOWN);
+      return s.race.peekChallenge(PLAYER_ID)!.prompt + s.snapshot().runners.map((r) => r.name).join();
+    };
+    const today = first(hashSeed('daily', '2026-10-11', 3), 3);
+    expect(first(hashSeed('daily', '2026-10-12', 3), 3)).not.toBe(today);
+    expect(first(hashSeed('daily', '2026-10-11', 4), 4)).not.toBe(today);
   });
 });

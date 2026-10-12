@@ -23,6 +23,8 @@ export interface RaceConfig {
   timeLimitMs: number;
   /** Fixed simulation step. */
   tickMs: number;
+  /** Whether challenge levels adapt to each runner's performance; off keeps every runner on its chosen level. */
+  adaptiveDifficulty: boolean;
 }
 
 export const DEFAULT_RACE_CONFIG: Readonly<RaceConfig> = Object.freeze({
@@ -39,6 +41,7 @@ export const DEFAULT_RACE_CONFIG: Readonly<RaceConfig> = Object.freeze({
   countdownMs: 3000,
   timeLimitMs: 180_000,
   tickMs: 10,
+  adaptiveDifficulty: true,
 });
 
 export const MIN_LEVEL = 1;

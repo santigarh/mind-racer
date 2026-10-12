@@ -75,7 +75,9 @@ export class Race {
     if (options.runners.length === 0) throw new Error('A race needs at least one runner');
     this.runners = options.runners.map((spec, index) => {
       if (this.byId.has(spec.id)) throw new Error(`Duplicate runner id ${spec.id}`);
-      const difficulty = new DifficultyController(spec.level ?? options.level);
+      const difficulty = new DifficultyController(spec.level ?? options.level, {
+        adaptive: this.config.adaptiveDifficulty,
+      });
       const runner: Runner = {
         spec: { ...spec, level: difficulty.baseLevel },
         index,
