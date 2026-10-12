@@ -74,7 +74,7 @@
 @media (max-width: 640px) {
   .entryGrid,
   .lobbyGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .title {
     font-size: 36px;
@@ -108,6 +108,9 @@
 }
 
 .codeInput {
+  /* without this the input keeps its intrinsic ~20-char width and widens the card on phones */
+  width: 100%;
+  min-width: 0;
   padding: var(--s-100) var(--s-200);
   border: 1px solid var(--surface-3);
   border-radius: var(--r-xl);
