@@ -3,7 +3,7 @@
 ## 1. Pendientes técnicos
 
 - [x] 1.1 Normalizar el esquema en `serverUrl()` (`https`→`wss`, `http`→`ws`, `ws(s)` sin cambios) según D9; verificar con pruebas unitarias de los cuatro casos más el valor por defecto
-- [ ] 1.2 Actualizar `ci.yml` a `actions/checkout@v7`, `actions/setup-node@v7` y `pnpm/action-setup@v6` tras leer sus notas de versión (D10); verificar que el YAML es válido y, tras el push, que el run pasa sin el aviso de Node 20
+- [x] 1.2 Actualizar `ci.yml` a `actions/checkout@v7`, `actions/setup-node@v7` y `pnpm/action-setup@v6` tras leer sus notas de versión (D10); verificar que el YAML es válido y, tras el push, que el run pasa sin el aviso de Node 20
 
 ## 2. Nombres legibles en móvil
 
@@ -26,7 +26,7 @@
 
 - [x] 5.1 Verificar que `pnpm test`, `pnpm typecheck`, `pnpm build` y `pnpm --filter server build:prod` pasan desde la raíz
 - [x] 5.2 Prueba en el navegador en local: crear sala, abrir el enlace en otra pestaña con otro origen y entrar sola; correr una carrera escuchando los sonidos y silenciando a mitad; revisar la pista en 375 × 812 px; sin errores en consola
-- [ ] 5.3 Tras el push, prueba en la nube del usuario con dos celulares: escanear el QR del lobby desde el otro celular, entrar a la sala, correr con sonido y vibración (Android) y silenciar
+- [x] 5.3 Tras el push, prueba en la nube del usuario con dos celulares: escanear el QR del lobby desde el otro celular, entrar a la sala, correr con sonido y vibración (Android) y silenciar
 
 ## Workflow follow-up
 
