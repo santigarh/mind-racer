@@ -249,6 +249,10 @@
   border-color: var(--accent);
 }
 
+.playerCar {
+  flex: none;
+}
+
 .playerLevel {
   font-family: var(--font-mono);
   font-weight: 600;

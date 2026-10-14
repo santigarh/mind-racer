@@ -82,7 +82,7 @@ Ver proposal.md (Why) y las specs de este cambio. Estado actual relevante (revis
   - si el corredor tiene auto, usan el ícono del vehículo y `--paint-<pintura>` como `--lane-color`;
   - si no, el ícono clásico y `laneColor` como hoy (bots y versiones viejas).
   - Tu carril sigue con su fondo resaltado y la etiqueta "Tú".
-- Si un ícono mira a la izquierda, se voltea con `transform: scaleX(-1)` para que todos miren a la meta. Esto se comprueba en el navegador al implementar.
+- Si un ícono mira a la izquierda, se voltea con `transform: scaleX(-1)` para que todos miren a la meta. Esto se comprueba en el navegador al implementar. *Comprobado:* los 6 íconos ya miran a la derecha, así que ninguno se voltea; la opción `mirrored` queda para reemplazos futuros.
 - El `Lobby` muestra un ícono pequeño del auto de cada persona antes del nombre.
 
 ### D6. Pantalla del garaje

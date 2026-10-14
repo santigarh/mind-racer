@@ -5,7 +5,9 @@ import {
   type RaceConfig,
   type RaceSnapshot,
 } from '@mind-racer/engine';
+import { DEFAULT_CAR } from '@mind-racer/protocol';
 import type {
+  Car,
   ClientMessage,
   ErrorCode,
   NetRunnerResult,
@@ -30,6 +32,8 @@ interface Player {
   id: string;
   name: string;
   level: number;
+  /** Chosen in the garage; the classic amber car when none (or an invalid one) arrived. */
+  car: Car;
   token: string;
   conn: Connection | null;
   disconnectedAt: number | null;
@@ -89,13 +93,14 @@ export class Room {
   // ---------- membership ----------
 
   /** Adds a person; returns their id, or an error code. */
-  join(conn: Connection, name: string, level: number): string | ErrorCode {
+  join(conn: Connection, name: string, level: number, car: Car = DEFAULT_CAR): string | ErrorCode {
     if (this.players.size >= ROOM_LIMITS.capacity) return 'room-full';
     const now = this.options.now();
     const player: Player = {
       id: `p${this.nextPlayer++}`,
       name,
       level,
+      car: { ...car },
       token: this.options.makeToken(),
       conn,
       disconnectedAt: null,
@@ -216,6 +221,7 @@ export class Room {
         kind: r.kind,
         chosenLevel: r.chosenLevel,
         ...(profiles[r.id] ? { botProfile: profiles[r.id] } : {}),
+        ...(this.players.has(r.id) ? { car: { ...this.players.get(r.id)!.car } } : {}),
       })),
     };
     session.start(0);
@@ -420,6 +426,7 @@ export class Room {
         level: p.level,
         connected: p.conn !== null,
         status: p.status,
+        car: { ...p.car },
       })),
     };
     for (const player of this.players.values()) this.send(player, message);

@@ -84,6 +84,24 @@ mismo nivel**, en cualquier celular. Se juega una vez por día y cuenta como una
 - **Compartir resultado** envía algo como `Mind Racer · Desafío del 11 oct · Nivel 3 · 🏁 1.º · 0:42,3 · 18/20 · 🔥 Racha de 5 días`
   al grupo de la familia. Todo se guarda solo en el dispositivo; no hay tabla en el servidor.
 
+### Garaje
+
+En el **Garaje** (botón en el menú) eliges tu vehículo y tu pintura. Se desbloquean jugando, sin monedas ni compras:
+
+| Vehículo | Se gana con | Pintura | Se gana con |
+|---|---|---|---|
+| Clásico | desde el inicio | Ámbar | desde el inicio |
+| Moto | 3 carreras | Rojo | 1 carrera |
+| Scooter | 1 victoria | Morado | desbloquear el nivel 3 |
+| Camión | desbloquear el nivel 4 | Verde | hacer un desafío diario |
+| Furgoneta | racha de 3 días | Azul | 5 carreras |
+| Tractor | 10 victorias | Cian | 5 victorias |
+| | | Blanco | 25 carreras |
+| | | Dorado | racha de 7 días |
+
+Tu auto corre en la pista y, en las salas, todos ven el de cada quien en el lobby, la pista y los resultados.
+Se elige antes de entrar a una sala. Los resultados avisan cuando una carrera te desbloquea algo nuevo.
+
 ## Publicar en internet
 
 La web va en **Cloudflare Workers** como sitio estático (gratis, siempre disponible) y el servidor multijugador en **Render** (plan gratis).

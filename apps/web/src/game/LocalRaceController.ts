@@ -6,6 +6,7 @@ import {
   type RaceConfig,
   type RaceSnapshot,
 } from '@mind-racer/engine';
+import type { Car } from '@mind-racer/protocol';
 import type { RaceViewSource, RaceViewState } from './RaceViewSource';
 
 export const RESUME_COUNTDOWN_MS = 3000;
@@ -16,6 +17,8 @@ export interface LocalRaceControllerOptions {
   seed: number;
   level: number;
   playerName: string;
+  /** The player's garage car; the classic look when omitted. */
+  car?: Car;
   config?: Partial<RaceConfig>;
   /** Wall clock, injectable for tests. */
   now?: () => number;
@@ -41,6 +44,7 @@ export class LocalRaceController implements RaceViewSource {
   private readonly listeners = new Set<Listener>();
   private readonly holds = new Set<string>();
   private readonly botProfiles: Readonly<Record<string, BotProfileId>>;
+  private readonly cars: Readonly<Record<string, Car>>;
   private raceMs = 0;
   private lastWallMs: number | null = null;
   private resumeRemainingMs = 0;
@@ -61,6 +65,8 @@ export class LocalRaceController implements RaceViewSource {
       ...(options.config ? { config: options.config } : {}),
     });
     this.botProfiles = Object.freeze(this.session.botProfiles());
+    const cars: Record<string, Car> = options.car ? { [PLAYER_ID]: options.car } : {};
+    this.cars = Object.freeze(cars);
     this.state = this.buildState();
   }
 
@@ -190,6 +196,7 @@ export class LocalRaceController implements RaceViewSource {
       paused: this.isPaused(),
       resumeRemainingMs: this.resumeRemainingMs,
       botProfiles: this.botProfiles,
+      cars: this.cars,
       presence: NO_PRESENCE,
       reconnecting: false,
     };

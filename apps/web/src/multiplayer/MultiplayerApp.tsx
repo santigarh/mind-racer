@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { RaceSnapshot } from '@mind-racer/engine';
-import { isRoomCode } from '@mind-racer/protocol';
+import { DEFAULT_CAR, isRoomCode, type Car } from '@mind-racer/protocol';
 import { applyRaceResult, type Profile, type ProgressUpdate } from '../progress/profile';
 import { RaceScreen } from '../race/RaceScreen';
 import { Results } from '../screens/Results';
 import type { MultiplayerSession } from '../net/MultiplayerSession';
+import { newlyUnlocked, progressOf } from '../garage/unlocks';
 import { Entry } from './Entry';
 import { Lobby } from './Lobby';
 
@@ -16,19 +17,32 @@ interface MultiplayerAppProps {
   onExit: () => void;
   /** Room code from a `?sala=` link: join it right away instead of showing the entry screen (design D1). */
   autoJoinCode?: string | null;
+  /** The garage car this person races with; sent when creating or joining a room. */
+  car?: Car;
 }
 
 interface Finished {
   seed: number;
   snapshot: RaceSnapshot;
   update: ProgressUpdate;
+  garageUnlocks: string[];
 }
+
+/** Online races never change the daily streak, so it plays no part in what they unlock. */
+const NO_STREAK = { bestStreak: 0 };
 
 /**
  * Online play. The server's status for this player picks the screen:
  * not in a room → Entry; racing → RaceScreen; results → Results; otherwise → Lobby.
  */
-export function MultiplayerApp({ session, profile, onProfile, onExit, autoJoinCode = null }: MultiplayerAppProps) {
+export function MultiplayerApp({
+  session,
+  profile,
+  onProfile,
+  onExit,
+  autoJoinCode = null,
+  car = DEFAULT_CAR,
+}: MultiplayerAppProps) {
   const view = useSyncExternalStore(session.subscribe, session.getState, session.getState);
   const [finished, setFinished] = useState<Finished | null>(null);
   const reconnecting = view.connection === 'reconnecting';
@@ -37,9 +51,10 @@ export function MultiplayerApp({ session, profile, onProfile, onExit, autoJoinCo
   // Otherwise, back from a reload while in a room: rejoin it.
   const joinCode = autoJoinCode !== null && autoJoinCode !== session.resumeCode() ? autoJoinCode : null;
   const profileForJoin = useRef(profile);
+  const carForJoin = useRef(car);
   useEffect(() => {
     if (joinCode !== null) {
-      if (isRoomCode(joinCode)) session.join(joinCode, profileForJoin.current.name, profileForJoin.current.unlockedLevel);
+      if (isRoomCode(joinCode)) session.join(joinCode, profileForJoin.current.name, profileForJoin.current.unlockedLevel, carForJoin.current);
       return;
     }
     if (session.canResume() && !session.getState().playerId) session.resume();
@@ -69,7 +84,8 @@ export function MultiplayerApp({ session, profile, onProfile, onExit, autoJoinCo
         correctPerMinute: mine.correctPerMinute,
       });
       onProfileRef.current(update.profile);
-      setFinished({ seed: race.seed, snapshot, update });
+      const garageUnlocks = newlyUnlocked(progressOf(profileRef.current, NO_STREAK), progressOf(update.profile, NO_STREAK));
+      setFinished({ seed: race.seed, snapshot, update, garageUnlocks });
     };
     check();
     return race.subscribe(check);
@@ -89,8 +105,8 @@ export function MultiplayerApp({ session, profile, onProfile, onExit, autoJoinCo
         error={view.error?.message ?? null}
         offlineSince={view.offlineSince}
         initialCode={autoJoinCode ?? undefined}
-        onCreate={() => session.create(profile.name, profile.unlockedLevel)}
-        onJoin={(code) => session.join(code, profile.name, profile.unlockedLevel)}
+        onCreate={() => session.create(profile.name, profile.unlockedLevel, car)}
+        onJoin={(code) => session.join(code, profile.name, profile.unlockedLevel, car)}
         onBack={() => {
           session.dispose();
           onExit();
@@ -118,8 +134,10 @@ export function MultiplayerApp({ session, profile, onProfile, onExit, autoJoinCo
         snapshot={finished.snapshot}
         playerId={race.playerId}
         botProfiles={race.getState().botProfiles}
+        cars={race.getState().cars}
         presence={race.getState().presence}
         update={finished.update}
+        garageUnlocks={finished.garageUnlocks}
         onPlayAgain={() => session.backToRoom()}
         onMenu={leave}
       />

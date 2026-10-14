@@ -47,6 +47,9 @@ function setup(unlockedLevel = 2, name = 'Lucía') {
   return { net, server, sent, tick };
 }
 
+/** The garage car sent when nothing else is unlocked. */
+const CLASSIC = { body: 'classic', paint: 'amber' };
+
 const player = (id: string, name: string, level: number, extra: Partial<RoomPlayer> = {}): RoomPlayer => ({
   id,
   name,
@@ -99,13 +102,13 @@ describe('Jugar con amigos: crear y unirse', () => {
     expect(screen.getByRole('heading', { name: 'Jugar con amigos' })).toBeInTheDocument();
     await userEvent.click(screen.getAllByRole('button', { name: /crear sala/i })[0]!);
     act(() => ctx.net.socket.open());
-    expect(ctx.sent()).toEqual([{ type: 'create', name: 'Lucía', level: 3 }]);
+    expect(ctx.sent()).toEqual([{ type: 'create', name: 'Lucía', level: 3, car: CLASSIC }]);
   });
 
   it('unirse normaliza el código a mayúsculas', async () => {
     const ctx = setup();
     await inLobby(ctx);
-    expect(ctx.sent()[0]).toEqual({ type: 'join', code: 'K7QF', name: 'Lucía', level: 2 });
+    expect(ctx.sent()[0]).toEqual({ type: 'join', code: 'K7QF', name: 'Lucía', level: 2, car: CLASSIC });
   });
 
   it('un código mal escrito se avisa sin enviar nada', async () => {
@@ -307,7 +310,7 @@ describe('servidor despertando', () => {
       vi.advanceTimersByTime(35_000);
       ctx.net.socket.open();
     });
-    expect(ctx.sent()).toEqual([{ type: 'create', name: 'Lucía', level: 2 }]);
+    expect(ctx.sent()).toEqual([{ type: 'create', name: 'Lucía', level: 2, car: CLASSIC }]);
     ctx.server({ type: 'joined', code: 'K7QF', playerId: 'p1', token: 't' }, room([player('p1', 'Lucía', 2)], { hostId: 'p1' }));
     expect(screen.getByTestId('room-code')).toHaveTextContent('K7QF');
     expect(screen.queryByText(/Despertando el servidor/)).not.toBeInTheDocument();

@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@mind-racer/protocol';
+import type { Car, ServerMessage } from '@mind-racer/protocol';
 import { NetworkRaceController } from '../game/NetworkRaceController';
 import { NetClient, serverUrl, type ConnectionStatus } from './NetClient';
 
@@ -88,17 +88,17 @@ export class MultiplayerSession {
     this.update({ pending: true, error: null });
   }
 
-  create(name: string, level: number): void {
+  create(name: string, level: number, car?: Car): void {
     this.client.connect();
-    this.client.send({ type: 'create', name, level });
+    this.client.send({ type: 'create', name, level, ...(car ? { car } : {}) });
     this.update({ pending: true, error: null });
   }
 
   /** Joins once: ignored while another request is pending or already in a room (StrictMode effects). */
-  join(code: string, name: string, level: number): void {
+  join(code: string, name: string, level: number, car?: Car): void {
     if (this.view.pending || this.view.playerId) return;
     this.client.connect();
-    this.client.send({ type: 'join', code, name, level });
+    this.client.send({ type: 'join', code, name, level, ...(car ? { car } : {}) });
     this.update({ pending: true, error: null });
   }
 

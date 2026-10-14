@@ -1,7 +1,9 @@
 import type { CSSProperties } from 'react';
 import { CarProfile, FlagCheckered } from '@phosphor-icons/react';
 import type { BotProfileId, RunnerState } from '@mind-racer/engine';
-import type { Presence } from '@mind-racer/protocol';
+import type { Car, Presence } from '@mind-racer/protocol';
+import { CarIcon } from '../garage/CarIcon';
+import { paintInfo } from '../garage/catalog';
 import { ordinal } from '../ui/format';
 import styles from './Track.module.css';
 
@@ -13,6 +15,8 @@ interface TrackProps {
   /** Show each runner's chosen level next to the name (online races). */
   showLevels?: boolean;
   presence?: Readonly<Record<string, Presence>>;
+  /** Garage cars by runner id; runners without one use the classic car and lane color. */
+  cars?: Readonly<Record<string, Car>>;
 }
 
 export const PRESENCE_TEXT: Partial<Record<Presence, string>> = {
@@ -23,15 +27,18 @@ export const PRESENCE_TEXT: Partial<Record<Presence, string>> = {
 const OTHER_PEOPLE_COLORS = 3;
 
 /**
- * Lane color: amber for me, one per bot profile, and a separate palette for the other people,
- * assigned by sorted id so the track and the results agree.
+ * Lane color: the garage paint when the runner has a car; otherwise amber for me, one per bot profile,
+ * and a separate palette for the other people, assigned by sorted id so the track and the results agree.
  */
 export function laneColor(
   runnerId: string,
   playerId: string,
   botProfiles: Readonly<Record<string, BotProfileId>>,
   allIds: readonly string[] = [],
+  cars: Readonly<Record<string, Car>> = {},
 ) {
+  const car = cars[runnerId];
+  if (car) return paintInfo(car.paint).color;
   if (runnerId === playerId) return 'var(--lane-player)';
   const profile = botProfiles[runnerId];
   if (profile) return `var(--lane-${profile})`;
@@ -40,7 +47,7 @@ export function laneColor(
   return index >= 0 ? `var(--lane-human-${(index % OTHER_PEOPLE_COLORS) + 1})` : 'var(--text-muted)';
 }
 
-export function Track({ runners, distance, playerId, botProfiles, showLevels = false, presence = {} }: TrackProps) {
+export function Track({ runners, distance, playerId, botProfiles, showLevels = false, presence = {}, cars = {} }: TrackProps) {
   const ids = runners.map((r) => r.id);
   return (
     <ol className={styles.track} aria-label="Pista">
@@ -50,7 +57,7 @@ export function Track({ runners, distance, playerId, botProfiles, showLevels = f
         const away = presence[runner.id] ? PRESENCE_TEXT[presence[runner.id]!] : undefined;
         const style = {
           '--progress': progress.toFixed(4),
-          '--lane-color': laneColor(runner.id, playerId, botProfiles, ids),
+          '--lane-color': laneColor(runner.id, playerId, botProfiles, ids, cars),
         } as CSSProperties;
         return (
           <li
@@ -88,7 +95,11 @@ export function Track({ runners, distance, playerId, botProfiles, showLevels = f
                   data-finished={runner.finishTimeMs !== null}
                 >
                   <span className={styles.flame} aria-hidden />
-                  <CarProfile size={32} weight="fill" aria-hidden />
+                  {cars[runner.id] ? (
+                    <CarIcon car={cars[runner.id]!} size={32} painted={false} />
+                  ) : (
+                    <CarProfile size={32} weight="fill" aria-hidden />
+                  )}
                 </div>
               </div>
               <FlagCheckered className={styles.finish} size={20} weight="fill" aria-hidden />

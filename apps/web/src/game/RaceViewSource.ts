@@ -1,5 +1,5 @@
 import type { BotProfileId, RaceSnapshot } from '@mind-racer/engine';
-import type { Presence } from '@mind-racer/protocol';
+import type { Car, Presence } from '@mind-racer/protocol';
 
 export interface RaceViewState {
   snapshot: RaceSnapshot;
@@ -8,6 +8,8 @@ export interface RaceViewState {
   /** Ms left of the resume countdown, 0 when not resuming. */
   resumeRemainingMs: number;
   botProfiles: Readonly<Record<string, BotProfileId>>;
+  /** Garage car of each person (local: the player; online: everyone). Bots have none. */
+  cars: Readonly<Record<string, Car>>;
   /** Presence of people in an online race; empty for local races. */
   presence: Readonly<Record<string, Presence>>;
   /** Connection to the server lost and being restored (online only). */

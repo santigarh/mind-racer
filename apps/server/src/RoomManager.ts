@@ -79,13 +79,13 @@ export class RoomManager {
         if (this.rooms.size >= this.maxRooms) return this.error(conn, 'too-many-rooms');
         if (!this.allowRoomFrom(this.ips.get(conn))) return this.error(conn, 'rate-limited', TOO_MANY_ROOMS_TEXT);
         const room = this.createRoom();
-        return this.bind(conn, room, room.join(conn, message.name, message.level));
+        return this.bind(conn, room, room.join(conn, message.name, message.level, message.car));
       }
       case 'join': {
         this.leaveCurrent(conn);
         const room = this.rooms.get(message.code);
         if (!room) return this.error(conn, 'room-not-found');
-        return this.bind(conn, room, room.join(conn, message.name, message.level));
+        return this.bind(conn, room, room.join(conn, message.name, message.level, message.car));
       }
       case 'rejoin': {
         const room = this.rooms.get(message.code);

@@ -26,7 +26,8 @@
 }
 
 @media (max-width: 520px) {
-  .pilot {
+  .pilot,
+  .garageLabel {
     display: none;
   }
 }

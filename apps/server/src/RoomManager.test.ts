@@ -10,7 +10,9 @@ describe('RoomManager', () => {
     expect(isRoomCode(code)).toBe(true);
     const room = host.conn.last('room')!;
     expect(room).toMatchObject({ code, phase: 'lobby', hostId: host.id });
-    expect(room.players).toEqual([{ id: host.id, name: 'Papá', level: 8, connected: true, status: 'lobby' }]);
+    expect(room.players).toEqual([
+      { id: host.id, name: 'Papá', level: 8, connected: true, status: 'lobby', car: { body: 'classic', paint: 'amber' } },
+    ]);
     expect(h.manager.getRoom(code)).toBeDefined();
   });
 

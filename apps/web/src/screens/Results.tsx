@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
-import { ArrowCounterClockwise, Fire, House, LockOpen, SignOut, Star, UsersThree } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, Fire, Garage, House, LockOpen, SignOut, Star, UsersThree } from '@phosphor-icons/react';
 import type { BotProfileId, RaceSnapshot } from '@mind-racer/engine';
-import type { Presence } from '@mind-racer/protocol';
+import type { Car, Presence } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
 import { formatDecimal, formatPercent, formatTime, ordinal } from '../ui/format';
 import type { ProgressUpdate } from '../progress/profile';
@@ -14,6 +14,8 @@ interface ResultsProps {
   snapshot: RaceSnapshot;
   playerId: string;
   botProfiles: Readonly<Record<string, BotProfileId>>;
+  /** Garage cars by runner id, for the standings colors. */
+  cars?: Readonly<Record<string, Car>>;
   update: ProgressUpdate;
   /** Local: "Correr de nuevo". Online: "Volver a la sala". */
   onPlayAgain: () => void;
@@ -21,6 +23,8 @@ interface ResultsProps {
   onMenu: () => void;
   online?: boolean;
   presence?: Readonly<Record<string, Presence>>;
+  /** Garage vehicles and paints this race unlocked, by name. */
+  garageUnlocks?: readonly string[];
   /** Daily challenge: the streak and the text to share; replaces "Correr de nuevo" with "Compartir resultado". */
   daily?: { streak: number; shareText: string };
 }
@@ -29,12 +33,14 @@ export function Results({
   snapshot,
   playerId,
   botProfiles,
+  cars = {},
   update,
   onPlayAgain,
   onMenu,
   online = false,
   presence = {},
   daily,
+  garageUnlocks = [],
 }: ResultsProps) {
   const results = snapshot.results ?? [];
   const me = results.find((r) => r.id === playerId)!;
@@ -58,7 +64,7 @@ export function Results({
         </p>
       </section>
 
-      {(daily || update.unlockedLevel !== null || highlights.length > 0) && (
+      {(daily || update.unlockedLevel !== null || garageUnlocks.length > 0 || highlights.length > 0) && (
         <ul className={styles.badges} aria-label="Logros">
           {daily && (
             <li className={styles.badge} data-kind="streak">
@@ -72,6 +78,12 @@ export function Results({
               Desbloqueaste el nivel {update.unlockedLevel}
             </li>
           )}
+          {garageUnlocks.map((name) => (
+            <li key={name} className={styles.badge} data-kind="garage">
+              <Garage size={20} weight="fill" aria-hidden />
+              Nuevo en el garaje: {name}
+            </li>
+          ))}
           {highlights.map((text) => (
             <li key={text} className={styles.badge}>
               <Star size={20} weight="fill" aria-hidden />
@@ -115,7 +127,7 @@ export function Results({
               <tr
                 key={r.id}
                 data-player={r.id === playerId}
-                style={{ '--lane-color': laneColor(r.id, playerId, botProfiles, results.map((x) => x.id)) } as CSSProperties}
+                style={{ '--lane-color': laneColor(r.id, playerId, botProfiles, results.map((x) => x.id), cars) } as CSSProperties}
               >
                 <td className={styles.pos}>{ordinal(r.position)}</td>
                 <td>

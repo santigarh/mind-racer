@@ -12,10 +12,14 @@ import { MultiplayerSession } from './net/MultiplayerSession';
 import { clearRoomLink, readRoomLink } from './multiplayer/roomLink';
 import { dailySeed, loadDaily, recordDaily, saveDaily, todayKey, type DailyData } from './daily/daily';
 import { dailyShareText } from './daily/shareText';
+import { Garage } from './garage/Garage';
+import { effectiveCar, garageStore } from './garage/choice';
+import { newlyUnlocked, progressOf } from './garage/unlocks';
 
 type Screen =
   | { name: 'onboarding' }
   | { name: 'menu' }
+  | { name: 'garage' }
   | { name: 'multiplayer'; session: MultiplayerSession; autoJoinCode?: string | null }
   | { name: 'race'; controller: LocalRaceController; daily?: { dateKey: string } }
   | {
@@ -23,6 +27,7 @@ type Screen =
       controller: LocalRaceController;
       snapshot: RaceSnapshot;
       update: ProgressUpdate;
+      garageUnlocks: string[];
       daily?: { streak: number; shareText: string };
     };
 
@@ -62,9 +67,10 @@ export function App({
     (level: number) => {
       if (!profile) return;
       setLastLevel(level);
-      setScreen({ name: 'race', controller: createController({ seed: makeSeed(), level, playerName: profile.name }) });
+      const car = effectiveCar(garageStore.get(), progressOf(profile, daily));
+      setScreen({ name: 'race', controller: createController({ seed: makeSeed(), level, playerName: profile.name, car }) });
     },
-    [profile, createController, makeSeed],
+    [profile, daily, createController, makeSeed],
   );
 
   // Today's challenge: the same race for everyone at this level today, without adaptation (design D1, D2).
@@ -77,6 +83,7 @@ export function App({
         seed: dailySeed(dateKey, level),
         level,
         playerName: profile.name,
+        car: effectiveCar(garageStore.get(), progressOf(profile, daily)),
         config: { adaptiveDifficulty: false },
       });
       setScreen({ name: 'race', controller, daily: { dateKey } });
@@ -126,7 +133,11 @@ export function App({
           });
           saveProfile(update.profile);
           setProfile(update.profile);
-          if (!dailyRace) return setScreen({ name: 'results', controller, snapshot, update });
+          const before = progressOf(profile, daily);
+          if (!dailyRace) {
+            const garageUnlocks = newlyUnlocked(before, progressOf(update.profile, daily));
+            return setScreen({ name: 'results', controller, snapshot, update, garageUnlocks });
+          }
           // The day it started counts, even if midnight passed during the race (design D4).
           const result = {
             level: snapshot.level,
@@ -144,6 +155,7 @@ export function App({
             controller,
             snapshot,
             update,
+            garageUnlocks: newlyUnlocked(before, progressOf(update.profile, recorded)),
             daily: { streak: recorded.streak, shareText: dailyShareText(dailyRace.dateKey, result, recorded.streak) },
           });
         }}
@@ -157,7 +169,9 @@ export function App({
         snapshot={screen.snapshot}
         playerId={screen.controller.playerId}
         botProfiles={screen.controller.getState().botProfiles}
+        cars={screen.controller.getState().cars}
         update={screen.update}
+        garageUnlocks={screen.garageUnlocks}
         daily={screen.daily}
         onPlayAgain={() => startRace(screen.snapshot.level)}
         onMenu={() => setScreen({ name: 'menu' })}
@@ -165,11 +179,16 @@ export function App({
     );
   }
 
+  if (screen.name === 'garage') {
+    return <Garage profile={profile} daily={daily} onBack={() => setScreen({ name: 'menu' })} />;
+  }
+
   if (screen.name === 'multiplayer') {
     return (
       <MultiplayerApp
         session={screen.session}
         autoJoinCode={screen.autoJoinCode}
+        car={effectiveCar(garageStore.get(), progressOf(profile, daily))}
         profile={profile}
         onProfile={(updated) => {
           saveProfile(updated);
@@ -186,6 +205,7 @@ export function App({
       initialLevel={lastLevel}
       onStart={startRace}
       onMultiplayer={() => setScreen({ name: 'multiplayer', session: createMultiplayerSession() })}
+      onGarage={() => setScreen({ name: 'garage' })}
       daily={{ data: daily, onStart: startDaily }}
     />
   );

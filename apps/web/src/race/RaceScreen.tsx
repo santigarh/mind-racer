@@ -118,6 +118,7 @@ export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, f
           distance={snapshot.distance}
           playerId={controller.playerId}
           botProfiles={state.botProfiles}
+          cars={state.cars}
           showLevels={online}
           presence={state.presence}
         />

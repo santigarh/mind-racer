@@ -4,6 +4,7 @@ import type { RoomPlayer } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
 import { SoundToggle } from '../ui/SoundToggle';
 import { ShareRoom } from './ShareRoom';
+import { CarIcon } from '../garage/CarIcon';
 import type { RoomMessage } from '../net/MultiplayerSession';
 import styles from './Multiplayer.module.css';
 
@@ -65,6 +66,7 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
             {room.players.map((p) => (
               <li key={p.id} className={styles.player} data-me={p.id === playerId} aria-label={playerLabel(p, room.hostId)}>
                 <span className={styles.playerLevel}>N{p.level}</span>
+                {p.car && <CarIcon car={p.car} size={24} className={styles.playerCar} />}
                 <span className={styles.playerName}>
                   {p.name}
                   {p.id === playerId && <span className={styles.you}>Tú</span>}

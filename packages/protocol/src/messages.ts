@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { MAX_LEVEL, MIN_LEVEL } from '@mind-racer/engine';
 import { MAX_MESSAGE_BYTES, normalizeRoomCode } from './codes';
+import { carSchema, sentCarSchema } from './garage';
 
 export const NAME_MAX_LENGTH = 20;
 /** Longest answer a player can type (sign + digits). */
@@ -41,8 +42,8 @@ export const publicChallengeSchema = z.strictObject({
 // ---------- client → server ----------
 
 export const clientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('create'), name: nameSchema, level: levelSchema }),
-  z.object({ type: z.literal('join'), code: roomCodeSchema, name: nameSchema, level: levelSchema }),
+  z.object({ type: z.literal('create'), name: nameSchema, level: levelSchema, car: sentCarSchema }),
+  z.object({ type: z.literal('join'), code: roomCodeSchema, name: nameSchema, level: levelSchema, car: sentCarSchema }),
   z.object({ type: z.literal('rejoin'), code: roomCodeSchema, token: z.string().min(1).max(64) }),
   z.object({ type: z.literal('setLevel'), level: levelSchema }),
   z.object({ type: z.literal('start') }),
@@ -64,6 +65,8 @@ export const roomPlayerSchema = z.object({
   level: levelSchema,
   connected: z.boolean(),
   status: playerStatusSchema,
+  /** Optional so older servers still parse; the current server always sends it. */
+  car: carSchema.optional(),
 });
 export type RoomPlayer = z.infer<typeof roomPlayerSchema>;
 
@@ -73,6 +76,8 @@ export const raceRunnerSchema = z.object({
   kind: runnerKindSchema,
   chosenLevel: levelSchema,
   botProfile: botProfileSchema.optional(),
+  /** People only; bots keep their profile colors. */
+  car: carSchema.optional(),
 });
 export type RaceRunner = z.infer<typeof raceRunnerSchema>;
 

@@ -30,6 +30,16 @@
   --lane-human-2: #4cc9f0;
   --lane-human-3: #f4d35e;
 
+  /* Garage paints (design D1) */
+  --paint-amber: #ffb547;
+  --paint-red: #ff5c5c;
+  --paint-purple: #b98cff;
+  --paint-green: #4ed37a;
+  --paint-blue: #5b9dff;
+  --paint-cyan: #4cd7f0;
+  --paint-white: #f2f2f2;
+  --paint-gold: #f5c542;
+
   /* Spacing scale */
   --s-25: 2px;
   --s-50: 4px;

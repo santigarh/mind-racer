@@ -72,6 +72,10 @@
   color: var(--accent-ink);
 }
 
+.badge[data-kind='garage'] {
+  border-color: var(--accent);
+}
+
 .badge[data-kind='streak'] {
   color: var(--accent);
 }

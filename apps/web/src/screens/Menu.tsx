@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CarProfile, FlagCheckered, Lock, Timer, Trophy, Gauge, Target, UsersThree } from '@phosphor-icons/react';
+import { CarProfile, FlagCheckered, Garage, Lock, Timer, Trophy, Gauge, Target, UsersThree } from '@phosphor-icons/react';
 import { MATH_LEVELS, getLevelDefinition } from '@mind-racer/engine';
 import { Button } from '../ui/Button';
 import { SoundToggle } from '../ui/SoundToggle';
@@ -15,11 +15,13 @@ interface MenuProps {
   onStart: (level: number) => void;
   /** Opens "Jugar con amigos". */
   onMultiplayer?: () => void;
+  /** Opens the garage. */
+  onGarage?: () => void;
   /** "Desafío de hoy": saved daily data and how to start today's race. */
   daily?: { data: DailyData; onStart: (level: number) => void };
 }
 
-export function Menu({ profile, initialLevel, onStart, onMultiplayer, daily }: MenuProps) {
+export function Menu({ profile, initialLevel, onStart, onMultiplayer, onGarage, daily }: MenuProps) {
   const [level, setLevel] = useState(() =>
     initialLevel && isLevelUnlocked(profile, initialLevel) ? initialLevel : profile.unlockedLevel,
   );
@@ -36,6 +38,12 @@ export function Menu({ profile, initialLevel, onStart, onMultiplayer, daily }: M
         <div className={styles.headerActions}>
           <span className={styles.pilot}>Piloto: {profile.name}</span>
           <SoundToggle />
+          {onGarage && (
+            <Button variant="secondary" size="small" onClick={onGarage} aria-label="Garaje">
+              <Garage size={18} aria-hidden />
+              <span className={styles.garageLabel}>Garaje</span>
+            </Button>
+          )}
           {onMultiplayer && (
             <Button variant="secondary" size="small" onClick={onMultiplayer}>
               <UsersThree size={18} aria-hidden />

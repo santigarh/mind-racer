@@ -99,3 +99,58 @@ describe('mensajes servidor → cliente', () => {
     expect(parseServerMessage(JSON.stringify({ type: 'error', code: 'boom', message: 'x' })).ok).toBe(false);
   });
 });
+
+describe('auto del garaje en los mensajes', () => {
+  const join = (car?: unknown) =>
+    parseClientMessage(JSON.stringify({ type: 'join', code: 'k7qf', name: 'Lucía', level: 2, ...(car === undefined ? {} : { car }) }));
+
+  it('acepta un auto válido en crear y unirse', () => {
+    expect(join({ body: 'motorcycle', paint: 'red' })).toMatchObject({
+      ok: true,
+      message: { car: { body: 'motorcycle', paint: 'red' } },
+    });
+    const create = parseClientMessage(
+      JSON.stringify({ type: 'create', name: 'Papá', level: 8, car: { body: 'truck', paint: 'blue' } }),
+    );
+    expect(create).toMatchObject({ ok: true, message: { car: { body: 'truck', paint: 'blue' } } });
+  });
+
+  it('sin auto sigue siendo válido (versión vieja del juego)', () => {
+    const parsed = join();
+    expect(parsed.ok).toBe(true);
+    expect(parsed.ok && 'car' in parsed.message ? parsed.message.car : undefined).toBeUndefined();
+  });
+
+  it('un auto inválido no rechaza el mensaje: se trata como ausente', () => {
+    for (const car of [{ body: 'nave', paint: 'red' }, { body: 'truck', paint: 'neon' }, 'rojo', null, 42]) {
+      const parsed = join(car);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.ok && parsed.message.type === 'join' ? parsed.message.car : 'x').toBeUndefined();
+    }
+  });
+
+  it('la sala y la carrera llevan el auto de cada persona', () => {
+    const room = parseServerMessage(
+      JSON.stringify({
+        type: 'room',
+        code: 'K7QF',
+        phase: 'lobby',
+        hostId: 'p1',
+        players: [{ id: 'p1', name: 'Papá', level: 8, connected: true, status: 'lobby', car: { body: 'truck', paint: 'blue' } }],
+      }),
+    );
+    expect(room).toMatchObject({ ok: true, message: { players: [{ car: { body: 'truck', paint: 'blue' } }] } });
+    const start = parseServerMessage(
+      JSON.stringify({
+        type: 'raceStart',
+        seed: 1,
+        distance: 1000,
+        runners: [
+          { id: 'p1', name: 'Papá', kind: 'human', chosenLevel: 8, car: { body: 'van', paint: 'gold' } },
+          { id: 'b', name: 'Euler', kind: 'bot', chosenLevel: 8, botProfile: 'turbo' },
+        ],
+      }),
+    );
+    expect(start).toMatchObject({ ok: true, message: { runners: [{ car: { body: 'van', paint: 'gold' } }, { botProfile: 'turbo' }] } });
+  });
+});

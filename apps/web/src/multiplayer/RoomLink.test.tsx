@@ -42,6 +42,9 @@ function openAt(address: string, profile: { name: string; unlockedLevel: number 
   return { net, server, sent };
 }
 
+/** The garage car sent when nothing else is unlocked. */
+const CLASSIC = { body: 'classic', paint: 'amber' };
+
 const lobby = (code: string, name: string, level: number): ServerMessage[] => [
   { type: 'joined', code, playerId: 'p2', token: 't' },
   {
@@ -73,7 +76,7 @@ describe('entrar con el enlace', () => {
     const ctx = openAt('/?sala=k7qf', { name: 'Lucía', unlockedLevel: 3 });
     expect(window.location.search).toBe('');
     act(() => ctx.net.socket.open());
-    expect(ctx.sent()).toEqual([{ type: 'join', code: 'K7QF', name: 'Lucía', level: 3 }]);
+    expect(ctx.sent()).toEqual([{ type: 'join', code: 'K7QF', name: 'Lucía', level: 3, car: CLASSIC }]);
     ctx.server(...lobby('K7QF', 'Lucía', 3));
     expect(screen.getByTestId('room-code')).toHaveTextContent('K7QF');
   });
@@ -86,7 +89,7 @@ describe('entrar con el enlace', () => {
     await userEvent.click(screen.getByText('Intermedio'));
     await userEvent.click(screen.getByRole('button', { name: /empezar a correr/i }));
     act(() => ctx.net.socket.open());
-    expect(ctx.sent()).toEqual([{ type: 'join', code: 'K7QF', name: 'Abuela Rosa', level: 4 }]);
+    expect(ctx.sent()).toEqual([{ type: 'join', code: 'K7QF', name: 'Abuela Rosa', level: 4, car: CLASSIC }]);
     ctx.server(...lobby('K7QF', 'Abuela Rosa', 4));
     expect(screen.getByTestId('room-code')).toHaveTextContent('K7QF');
   });
@@ -111,7 +114,7 @@ describe('entrar con el enlace', () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ code: 'AB2C', token: 'viejo' }));
     const other = openAt('/?sala=K7QF', { name: 'Lucía', unlockedLevel: 2 });
     act(() => other.net.socket.open());
-    expect(other.sent()).toEqual([{ type: 'join', code: 'K7QF', name: 'Lucía', level: 2 }]);
+    expect(other.sent()).toEqual([{ type: 'join', code: 'K7QF', name: 'Lucía', level: 2, car: CLASSIC }]);
   });
 
   it('el enlace a la sala en la que ya estaba vuelve a ella sin unirse de nuevo', () => {

@@ -8,7 +8,7 @@ import {
   type RunnerResult,
   type RunnerState,
 } from '@mind-racer/engine';
-import type { ClientMessage, NetRunnerResult, NetRunnerState, Presence, RaceRunner, ServerMessage } from '@mind-racer/protocol';
+import type { Car, ClientMessage, NetRunnerResult, NetRunnerState, Presence, RaceRunner, ServerMessage } from '@mind-racer/protocol';
 import type { ConnectionStatus } from '../net/NetClient';
 import type { RaceViewSource, RaceViewState } from './RaceViewSource';
 
@@ -57,6 +57,7 @@ export class NetworkRaceController implements RaceViewSource {
   private readonly listeners = new Set<() => void>();
   private readonly unsubscribe: Array<() => void> = [];
   private readonly botProfiles: Readonly<Record<string, BotProfileId>>;
+  private readonly cars: Readonly<Record<string, Car>>;
   private received: Received | null = null;
   /** Distance offsets being blended away, per runner. */
   private corrections = new Map<string, { offset: number; at: number }>();
@@ -80,6 +81,7 @@ export class NetworkRaceController implements RaceViewSource {
     this.botProfiles = Object.freeze(
       Object.fromEntries(this.runners.filter((r) => r.botProfile).map((r) => [r.id, r.botProfile!])),
     );
+    this.cars = Object.freeze(Object.fromEntries(this.runners.filter((r) => r.car).map((r) => [r.id, r.car!])));
     this.reconnecting = this.channel.status !== 'open';
     this.unsubscribe.push(
       this.channel.onMessage((message) => this.receive(message)),
@@ -270,6 +272,7 @@ export class NetworkRaceController implements RaceViewSource {
       paused: false,
       resumeRemainingMs: 0,
       botProfiles: this.botProfiles,
+      cars: this.cars,
       presence,
       reconnecting: this.reconnecting,
     };
