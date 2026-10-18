@@ -31,6 +31,7 @@ export interface RoomOptions {
 }
 
 type PlayerStatus = 'lobby' | 'racing' | 'results' | 'waiting';
+type RaceStartMessage = Extract<ServerMessage, { type: 'raceStart' }>;
 
 interface Player {
   id: string;
@@ -55,6 +56,8 @@ interface Player {
 
 interface ActiveRace {
   session: RaceSession;
+  /** 1, 2, 3… since the room opened. */
+  number: number;
   /** Room clock time of race time 0. */
   epoch: number;
   runners: RaceRunner[];
@@ -77,6 +80,9 @@ export class Room {
   private readonly players = new Map<string, Player>();
   private hostId: string | null = null;
   private race: ActiveRace | null = null;
+  private raceCount = 0;
+  /** Class rooms: the last race's start and standings, kept for a teacher who reconnects (design D2). */
+  private lastRace: { start: RaceStartMessage; results: NetRunnerResult[] } | null = null;
   private nextPlayer = 1;
   private nextPing = 1;
   private ticks = 0;
@@ -166,6 +172,9 @@ export class Room {
     } else if (this.race && player.role === 'teacher') {
       this.sendRaceStart(player);
       this.send(player, this.stateFor(player, this.race.session.snapshot()));
+    } else if (!this.race && player.role === 'teacher' && this.lastRace) {
+      this.send(player, this.lastRace.start);
+      this.send(player, { type: 'results', results: this.lastRace.results });
     }
     return player.id;
   }
@@ -249,8 +258,10 @@ export class Room {
       ...(this.options.raceConfig ? { config: this.options.raceConfig } : {}),
     });
     const profiles = session.botProfiles();
+    this.lastRace = null;
     this.race = {
       session,
+      number: ++this.raceCount,
       epoch: this.options.now(),
       humanIds: session.humanIds,
       left: new Set(),
@@ -297,6 +308,7 @@ export class Room {
     }
     this.players.clear();
     this.race = null;
+    this.lastRace = null;
     this.hostId = null;
     this.closed = true;
   }
@@ -404,6 +416,7 @@ export class Room {
       maxLevel: r.maxLevel,
       presence: this.presence(r.id),
     }));
+    if (this.isClass) this.lastRace = { start: this.raceStartMessage(race), results };
     for (const player of this.players.values()) {
       if (player.status === 'racing') {
         player.status = 'results';
@@ -446,13 +459,18 @@ export class Room {
   }
 
   private sendRaceStart(player: Player): void {
-    const race = this.race!;
-    this.send(player, {
+    this.send(player, this.raceStartMessage(this.race!));
+  }
+
+  private raceStartMessage(race: ActiveRace): RaceStartMessage {
+    return {
       type: 'raceStart',
       seed: race.session.race.seed,
       distance: race.session.race.config.distance,
       runners: race.runners,
-    });
+      raceNumber: race.number,
+      startedAt: race.epoch,
+    };
   }
 
   private stateMessage(snapshot: RaceSnapshot): ServerMessage {

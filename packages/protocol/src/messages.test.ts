@@ -195,6 +195,18 @@ describe('modo clase en los mensajes', () => {
     expect(room({ mode: 'colegio' }).ok).toBe(false);
   });
 
+  it('el inicio de carrera trae su número y su hora, y sin ellos sigue valiendo', () => {
+    const start = (extra: object) =>
+      parseServerMessage(JSON.stringify({ type: 'raceStart', seed: 1, distance: 1000, runners: [], ...extra }));
+    expect(start({ raceNumber: 2, startedAt: 1_792_000_000_000 })).toMatchObject({
+      ok: true,
+      message: { raceNumber: 2, startedAt: 1_792_000_000_000 },
+    });
+    expect(start({}).ok).toBe(true);
+    expect(start({ raceNumber: 1.5 }).ok).toBe(false);
+    expect(start({ raceNumber: 0 }).ok).toBe(false);
+  });
+
   it('errores nuevos para quien fue quitado y para la sala cerrada', () => {
     for (const code of ['removed', 'room-closed']) {
       expect(parseServerMessage(JSON.stringify({ type: 'error', code, message: 'x' })).ok).toBe(true);

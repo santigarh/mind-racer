@@ -103,7 +103,8 @@ export function MultiplayerApp({
     onExit();
   };
 
-  // Teacher board: the race whose results she already closed with "Nueva carrera", and how many races ran.
+  // Teacher board: the race whose results she already closed with "Nueva carrera", and how many races ran
+  // (only used when an older server does not number its races).
   const [boardSeed, setBoardSeed] = useState<number | null>(null);
   const seenSeeds = useRef(new Set<number>());
   if (race) seenSeeds.current.add(race.seed);
@@ -155,7 +156,10 @@ export function MultiplayerApp({
         <BoardResults
           room={view.room}
           results={raceResults}
-          raceNumber={raceCount}
+          presence={race.getState().presence}
+          distance={race.getState().snapshot.distance}
+          raceNumber={race.raceNumber ?? raceCount}
+          startedAt={race.startedAt}
           onClose={closeRoom}
           onNext={() => setBoardSeed(race.seed)}
         />

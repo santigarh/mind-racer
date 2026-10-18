@@ -175,6 +175,10 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     seed: z.number().int(),
     distance: z.number(),
     runners: z.array(raceRunnerSchema),
+    /** 1, 2, 3… since the room opened. Optional so older servers still parse. */
+    raceNumber: z.number().int().positive().optional(),
+    /** Unix ms when the countdown began. Optional so older servers still parse. */
+    startedAt: z.number().optional(),
   }),
   z.object({
     type: z.literal('state'),

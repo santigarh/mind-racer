@@ -55,6 +55,10 @@ export class NetworkRaceController implements RaceViewSource {
   readonly resultsDelayMs = 0;
   readonly seed: number;
   readonly playerId: string;
+  /** 1, 2, 3… since the room opened; null when an older server does not send it. */
+  readonly raceNumber: number | null;
+  /** Unix ms when the countdown began; null when an older server does not send it. */
+  readonly startedAt: number | null;
   private readonly channel: RaceChannel;
   private readonly runners: readonly RaceRunner[];
   private readonly distance: number;
@@ -81,6 +85,8 @@ export class NetworkRaceController implements RaceViewSource {
   constructor(options: NetworkRaceOptions) {
     this.channel = options.channel;
     this.seed = options.raceStart.seed;
+    this.raceNumber = options.raceStart.raceNumber ?? null;
+    this.startedAt = options.raceStart.startedAt ?? null;
     this.runners = options.raceStart.runners;
     this.distance = options.raceStart.distance;
     this.playerId = options.playerId;

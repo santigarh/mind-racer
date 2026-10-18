@@ -19,23 +19,41 @@ const result = (position: number, extra: Partial<RunnerResult> = {}): RunnerResu
   ...extra,
 });
 
+/** Data rows of a CSV, without the BOM and the header. */
+const dataRows = (csv: string) => csv.slice(1).trimEnd().split('\r\n').slice(1);
+
 describe('CSV de la clasificación', () => {
   it('lleva BOM, separador ; y encabezados en español', () => {
     const csv = toCsv([result(1)]);
     expect(csv.startsWith('﻿')).toBe(true);
     const [header, row] = csv.slice(1).trimEnd().split('\r\n');
-    expect(header).toBe('Puesto;Nombre;Nivel;Tiempo;Aciertos;Errores;Precisión;Correctas por minuto');
-    expect(row).toBe('1;Alumno 1;3;0:42,3;18;2;90 %;25,5');
+    expect(header).toBe(
+      'Puesto;Nombre;Nivel;Nivel máximo;Tiempo;Avance;Estado;Aciertos;Errores;Precisión;Correctas por minuto',
+    );
+    expect(row).toBe('1;Alumno 1;3;4;0:42,3;100 %;Llegó;18;2;90 %;25,5');
   });
 
-  it('marca "sin llegar", ordena por puesto y protege nombres con ; o comillas', () => {
-    const csv = toCsv([
-      result(2, { finished: false, finishTimeMs: null, name: 'Ana; la "rápida"' }),
-      result(1, { name: 'Leo' }),
-    ]);
-    const rows = csv.slice(1).trimEnd().split('\r\n').slice(1);
+  it('marca "Sin llegar", ordena por puesto y protege nombres con ; o comillas', () => {
+    const csv = toCsv(
+      [result(2, { finished: false, finishTimeMs: null, distance: 400, name: 'Ana; la "rápida"' }), result(1, { name: 'Leo' })],
+      {},
+      1000,
+    );
+    const rows = dataRows(csv);
     expect(rows[0]).toMatch(/^1;Leo;/);
-    expect(rows[1]).toBe('2;"Ana; la ""rápida""";3;sin llegar;18;2;90 %;25,5');
+    expect(rows[1]).toBe('2;"Ana; la ""rápida""";3;4;—;40 %;Sin llegar;18;2;90 %;25,5');
+  });
+
+  it('el estado viene de la presencia de cada alumno', () => {
+    const csv = toCsv([result(1, { finished: false, finishTimeMs: null })], { p1: 'left' }, 1000);
+    expect(dataRows(csv)[0]).toContain(';Se fue;');
+  });
+
+  it('un nombre con forma de fórmula se guarda como texto (Nombre con forma de fórmula, Nombre común)', () => {
+    const names = ['=1+1', '@SUMA(A1)', '-Ana', '+5', '\tTab', '=A1;B1', 'Ana'];
+    const csv = toCsv(names.map((name, i) => result(i + 1, { name })));
+    const nameCells = dataRows(csv).map((row) => row.slice(row.indexOf(';') + 1, row.lastIndexOf(';3;4;')));
+    expect(nameCells).toEqual(["'=1+1", "'@SUMA(A1)", "'-Ana", "'+5", "'\tTab", `"'=A1;B1"`, 'Ana']);
   });
 
   it('una carrera de 28 alumnos da 28 filas más el encabezado (Llevarse los resultados)', () => {
@@ -45,6 +63,13 @@ describe('CSV de la clasificación', () => {
 
   it('nombra el archivo con el código, la fecha y el número de carrera', () => {
     expect(csvFileName('K7QF', new Date(2026, 9, 17), 2)).toBe('mind-racer-K7QF-2026-10-17-2.csv');
+  });
+
+  it('la fecha es la del inicio de la carrera aunque se descargue al día siguiente (Carrera que cruza la medianoche)', () => {
+    const startedAt = new Date(2026, 9, 17, 23, 59, 30).getTime();
+    vi.useFakeTimers({ now: new Date(2026, 9, 18, 0, 5) });
+    expect(csvFileName('K7QF', new Date(startedAt), 3)).toBe('mind-racer-K7QF-2026-10-17-3.csv');
+    vi.useRealTimers();
   });
 
   it('descarga el archivo desde el navegador, sin enviarlo a ningún lado', () => {

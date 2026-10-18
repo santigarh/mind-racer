@@ -213,3 +213,82 @@ describe('quitar alumnos y cerrar la sala', () => {
     expect(guest.conn.last('room')!.hostId).toBe(guest.id);
   });
 });
+
+describe('número de carrera y última clasificación', () => {
+  /** Plays a 5 s race that nobody finishes. */
+  const race = (h: H, teacher: { send: (m: Record<string, unknown>) => void }) => {
+    teacher.send({ type: 'start' });
+    h.advance(3_000 + 5_000 + 200);
+  };
+
+  it('cada inicio de carrera trae su número y la hora de la sala al iniciar', () => {
+    const h = harness({ distance: 1e6, timeLimitMs: 5_000 });
+    const { teacher, kids } = classRoom(h, 1);
+    const startedAt = h.now;
+    race(h, teacher);
+    expect(kids[0]!.conn.last('raceStart')).toMatchObject({ raceNumber: 1, startedAt });
+    kids[0]!.send({ type: 'backToRoom' });
+    race(h, teacher);
+    expect(teacher.conn.last('raceStart')!.raceNumber).toBe(2);
+  });
+
+  it('si la profesora recarga en los resultados, recibe otra vez la carrera y su clasificación (Recarga en la pantalla de resultados)', () => {
+    const h = harness({ distance: 1e6, timeLimitMs: 5_000 });
+    const { teacher, code, kids } = classRoom(h, 2);
+    race(h, teacher);
+    kids[0]!.send({ type: 'backToRoom' });
+    race(h, teacher);
+    const results = teacher.conn.last('results')!.results;
+    const token = teacher.conn.last('joined')!.token;
+    teacher.disconnect();
+    h.advance(2_000);
+    const back = h.client();
+    back.send({ type: 'rejoin', code, token });
+    const types = back.conn.inbox.map((m) => m.type);
+    expect(types.indexOf('raceStart')).toBeLessThan(types.indexOf('results'));
+    expect(back.conn.last('raceStart')!.raceNumber).toBe(2);
+    expect(back.conn.last('results')!.results).toEqual(results);
+  });
+
+  it('si ya empezó otra carrera, recibe la carrera en curso y no la clasificación anterior (Ya empezó otra carrera)', () => {
+    const h = harness({ distance: 1e6, timeLimitMs: 5_000 });
+    const { teacher, code } = classRoom(h, 1);
+    race(h, teacher);
+    teacher.send({ type: 'start' });
+    h.advance(1_000);
+    const token = teacher.conn.last('joined')!.token;
+    teacher.disconnect();
+    const back = h.client();
+    back.send({ type: 'rejoin', code, token });
+    expect(back.conn.last('raceStart')!.raceNumber).toBe(2);
+    expect(back.conn.last('results')).toBeUndefined();
+    expect(back.conn.all('state').length).toBeGreaterThan(0);
+  });
+
+  it('un alumno que se reconecta tras la carrera no recibe la clasificación otra vez', () => {
+    const h = harness({ distance: 1e6, timeLimitMs: 5_000 });
+    const { teacher, code, kids } = classRoom(h, 1);
+    race(h, teacher);
+    const token = kids[0]!.conn.last('joined')!.token;
+    kids[0]!.disconnect();
+    const back = h.client();
+    back.send({ type: 'rejoin', code, token });
+    expect(back.id).toBe(kids[0]!.id);
+    expect(back.conn.last('raceStart')).toBeUndefined();
+    expect(back.conn.last('results')).toBeUndefined();
+  });
+
+  it('una sala familiar no guarda la clasificación', () => {
+    const h = harness({ distance: 1e6, timeLimitMs: 5_000 });
+    const { host, code } = roomWithHost(h);
+    host.send({ type: 'start' });
+    h.advance(3_000 + 5_000 + 200);
+    expect(host.conn.last('results')).toBeDefined();
+    const token = host.conn.last('joined')!.token;
+    host.disconnect();
+    const back = h.client();
+    back.send({ type: 'rejoin', code, token });
+    expect(back.conn.last('results')).toBeUndefined();
+    expect((h.manager.getRoom(code) as unknown as { lastRace: unknown }).lastRace).toBeNull();
+  });
+});

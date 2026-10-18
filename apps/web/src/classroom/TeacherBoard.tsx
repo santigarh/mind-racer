@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { ArrowCounterClockwise, DownloadSimple, FlagCheckered, Play, UserMinus, WifiSlash, X } from '@phosphor-icons/react';
 import type { RunnerResult } from '@mind-racer/engine';
-import type { RoomPlayer } from '@mind-racer/protocol';
+import type { Presence, RoomPlayer } from '@mind-racer/protocol';
 import type { NetworkRaceController } from '../game/NetworkRaceController';
 import { useRaceController } from '../game/useRaceController';
 import { CarIcon } from '../garage/CarIcon';
@@ -10,8 +10,9 @@ import { RoomQr } from '../multiplayer/RoomQr';
 import { roomLink } from '../multiplayer/roomLink';
 import type { RoomMessage } from '../net/MultiplayerSession';
 import { Button } from '../ui/Button';
-import { formatDecimal, formatPercent, formatTime, ordinal } from '../ui/format';
+import { formatTime, ordinal } from '../ui/format';
 import { csvFileName, downloadCsv, toCsv } from './csv';
+import { STANDINGS_HEADERS, standingsRows } from './standings';
 import styles from './TeacherBoard.module.css';
 
 interface Common {
@@ -182,15 +183,29 @@ export function BoardResults({
   room,
   onClose,
   results,
+  presence,
+  distance,
   raceNumber,
+  startedAt,
   onNext,
-}: Common & { results: readonly RunnerResult[]; raceNumber: number; onNext: () => void }) {
-  const rows = [...results].sort((a, b) => a.position - b.position);
+}: Common & {
+  results: readonly RunnerResult[];
+  presence: Readonly<Record<string, Presence>>;
+  /** Length of the race, for each student's progress. */
+  distance: number;
+  raceNumber: number;
+  /** Unix ms when the race started; null with an older server (the download date is used then). */
+  startedAt: number | null;
+  onNext: () => void;
+}) {
+  const rows = standingsRows(results, presence, distance);
+  const download = () =>
+    downloadCsv(toCsv(results, presence, distance), csvFileName(room.code, new Date(startedAt ?? Date.now()), raceNumber));
   return (
     <main id="main" className={styles.page}>
       <BoardHeader room={room} onClose={onClose} title="Resultados" />
       <div className={styles.actions}>
-        <Button variant="secondary" size="large" onClick={() => downloadCsv(toCsv(rows), csvFileName(room.code, new Date(), raceNumber))}>
+        <Button variant="secondary" size="large" onClick={download}>
           <DownloadSimple size={20} weight="bold" aria-hidden />
           Descargar CSV
         </Button>
@@ -199,34 +214,28 @@ export function BoardResults({
           Nueva carrera
         </Button>
       </div>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th scope="col">Puesto</th>
-            <th scope="col">Nombre</th>
-            <th scope="col">Nivel</th>
-            <th scope="col">Tiempo</th>
-            <th scope="col">Aciertos</th>
-            <th scope="col">Errores</th>
-            <th scope="col">Precisión</th>
-            <th scope="col">Correctas/min</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id}>
-              <td>{ordinal(r.position)}</td>
-              <td>{r.name}</td>
-              <td>N{r.chosenLevel}</td>
-              <td>{r.finished && r.finishTimeMs !== null ? formatTime(r.finishTimeMs) : 'Sin llegar'}</td>
-              <td>{r.correct}</td>
-              <td>{r.wrong}</td>
-              <td>{formatPercent(r.accuracy)}</td>
-              <td>{formatDecimal(r.correctPerMinute)}</td>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              {STANDINGS_HEADERS.map((h) => (
+                <th key={h} scope="col">
+                  {h}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                {r.cells.map((c, i) => (
+                  <td key={STANDINGS_HEADERS[i]}>{c}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }

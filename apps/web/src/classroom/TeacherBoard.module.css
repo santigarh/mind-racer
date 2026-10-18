@@ -215,6 +215,10 @@
   margin: var(--s-300) 0;
 }
 
+.tableWrap {
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

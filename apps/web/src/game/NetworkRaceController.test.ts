@@ -243,6 +243,36 @@ describe('estados parciales (carrera de clase)', () => {
     expect(view().visibleRunnerIds).toBeNull();
   });
 
+  it('expone el número y la hora de la carrera, y los deja vacíos con un servidor viejo', () => {
+    const channel = new FakeChannel();
+    const numbered = new NetworkRaceController({
+      channel,
+      raceStart: { ...raceStart, raceNumber: 2, startedAt: 1_792_000_000_000 },
+      playerId: 'teacher',
+      autoLoop: false,
+    });
+    expect(numbered).toMatchObject({ raceNumber: 2, startedAt: 1_792_000_000_000 });
+    const old = new NetworkRaceController({ channel, raceStart, playerId: 'teacher', autoLoop: false });
+    expect(old).toMatchObject({ raceNumber: null, startedAt: null });
+  });
+
+  it('al reconectarse solo con los resultados, la profesora conoce quién se fue y la distancia', () => {
+    const channel = new FakeChannel();
+    const board = new NetworkRaceController({ channel, raceStart, playerId: 'teacher', autoLoop: false });
+    channel.emit({
+      type: 'results',
+      results: [
+        {
+          id: 'p2', name: 'Lucía', kind: 'human', position: 1, chosenLevel: 2, finished: false, finishTimeMs: null,
+          distance: 400, correct: 3, wrong: 0, accuracy: 1, correctPerMinute: 6, maxLevel: 3, presence: 'left',
+        },
+      ],
+    });
+    expect(board.getState().presence.p2).toBe('left');
+    expect(board.getState().snapshot.distance).toBe(1000);
+    expect(board.getState().snapshot.results![0]!.maxLevel).toBe(3);
+  });
+
   it('una espectadora (la profesora) ve la carrera sin ser corredora', () => {
     const channel = new FakeChannel();
     let now = 0;
