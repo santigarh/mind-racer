@@ -39,11 +39,19 @@ Cuando la profesora inicia la carrera, SHALL correr cada alumno conectado del lo
 - **THEN** el botón "Iniciar carrera" está deshabilitado
 
 ### Requirement: Vista del alumno
-En el celular de un alumno, la pista SHALL mostrar su propio carril y los de los 5 primeros puestos, junto con su posición entre todos (por ejemplo "12.º de 28"). Sus resultados SHALL mostrar su propio resultado y los 10 primeros puestos.
+Durante una carrera de clase, la pista de un alumno SHALL mostrar su propio carril y los de los primeros puestos: los 3 primeros en pantallas de hasta 640 px de ancho, para que la carrera quepa en el celular junto con el desafío y el teclado, y los 5 primeros en pantallas más anchas. SHALL mostrar también su posición entre todos (por ejemplo "12.º de 28"). Sus resultados SHALL mostrar su propio resultado y los 10 primeros puestos.
 
 #### Scenario: Alumno a mitad de tabla
-- **WHEN** un alumno va 12.º de 28
-- **THEN** ve en la pista los carriles de los 5 primeros y el suyo, y su posición "12.º de 28"
+- **WHEN** un alumno va 12.º de 28 en un celular
+- **THEN** ve en la pista los carriles de los 3 primeros y el suyo, y su posición "12.º de 28"
+
+#### Scenario: Cabe en el celular
+- **WHEN** un alumno corre una carrera de clase en una pantalla de 375 × 812 px con el teclado en pantalla
+- **THEN** la pista, el desafío y el teclado se ven sin desplazar la página
+
+#### Scenario: Tableta o computadora
+- **WHEN** un alumno corre en una pantalla de más de 640 px de ancho
+- **THEN** ve los carriles de los 5 primeros y el suyo
 
 ### Requirement: Clasificación descargable
 Al terminar la carrera, el tablero SHALL ofrecer "Descargar CSV" con una fila por alumno: puesto, nombre, nivel, tiempo o "sin llegar", aciertos, errores, precisión y correctas por minuto. El archivo SHALL generarse en el navegador de la profesora, sin enviarse a ningún servicio.

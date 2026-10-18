@@ -1,4 +1,4 @@
-import type { Car, ServerMessage } from '@mind-racer/protocol';
+import type { Car, RoomMode, ServerMessage } from '@mind-racer/protocol';
 import { NetworkRaceController } from '../game/NetworkRaceController';
 import { NetClient, serverUrl, type ConnectionStatus } from './NetClient';
 
@@ -88,9 +88,10 @@ export class MultiplayerSession {
     this.update({ pending: true, error: null });
   }
 
-  create(name: string, level: number, car?: Car): void {
+  /** Creates a family room, or a class room where this person is the teacher. */
+  create(name: string, level: number, car?: Car, mode: RoomMode = 'family'): void {
     this.client.connect();
-    this.client.send({ type: 'create', name, level, ...(car ? { car } : {}) });
+    this.client.send({ type: 'create', name, level, ...(car ? { car } : {}), ...(mode === 'class' ? { mode } : {}) });
     this.update({ pending: true, error: null });
   }
 
@@ -118,6 +119,19 @@ export class MultiplayerSession {
     this.client.send({ type: 'backToRoom' });
   }
 
+  /** Class rooms, teacher only: removes a student. */
+  kick(playerId: string): void {
+    this.client.send({ type: 'kick', playerId });
+  }
+
+  /** Class rooms, teacher only: ends the class for everyone. */
+  closeRoom(): void {
+    this.client.send({ type: 'closeRoom' });
+    this.client.clearSession();
+    this.view.race?.dispose();
+    this.update({ playerId: null, room: null, race: null, pending: false, error: null });
+  }
+
   /** Leaves the room for good and closes the connection. */
   leave(): void {
     this.client.send({ type: 'leave' });
@@ -139,6 +153,18 @@ export class MultiplayerSession {
       case 'room':
         return this.update({ room: message });
       case 'error':
+        // Removed by the teacher, or the class was closed: no longer in a room (design D5).
+        if (message.code === 'removed' || message.code === 'room-closed') {
+          this.client.clearSession();
+          this.view.race?.dispose();
+          return this.update({
+            playerId: null,
+            room: null,
+            race: null,
+            pending: false,
+            error: { code: message.code, message: message.message },
+          });
+        }
         return this.update({ error: { code: message.code, message: message.message }, pending: false });
       case 'raceStart': {
         this.view.race?.dispose();

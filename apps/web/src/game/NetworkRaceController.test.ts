@@ -203,3 +203,57 @@ describe('NetworkRaceController', () => {
     expect(result.current.snapshot.runners[1]!.distance).toBeGreaterThan(before);
   });
 });
+
+describe('estados parciales (carrera de clase)', () => {
+  it('un corredor que deja de llegar conserva su distancia y su posición', () => {
+    const { channel, at, view, runnerOf } = setup();
+    channel.emit(
+      state(1000, [
+        runner('p1', 300, 0, { position: 1 }),
+        runner('p2', 100, 0, { position: 3 }),
+        runner('bot-tortuga-0', 200, 0, { position: 2 }),
+      ]),
+    );
+    at(200);
+    // The next message only brings p2 and the leader.
+    channel.emit(state(1200, [runner('p1', 320, 0, { position: 1 }), runner('p2', 110, 0, { position: 3 })]));
+    at(150); // past the correction blend
+    expect(runnerOf('bot-tortuga-0').distance).toBeCloseTo(200);
+    expect(runnerOf('bot-tortuga-0').position).toBe(2);
+    expect(runnerOf('p1').distance).toBeCloseTo(320);
+    expect(view().visibleRunnerIds).toEqual(['p1', 'p2']);
+  });
+
+  it('no extrapola a quien no llega más allá del límite', () => {
+    const { channel, at, runnerOf } = setup();
+    channel.emit(state(1000, [runner('p1', 300, 20), runner('p2', 100, 0), runner('bot-tortuga-0', 200, 0)]));
+    at(100);
+    for (let i = 0; i < 10; i++) {
+      channel.emit(state(1100 + i * 200, [runner('p2', 100, 0)]));
+      at(200);
+    }
+    const cap = 300 + (20 * (1 - Math.exp(-k * 0.5))) / k;
+    expect(runnerOf('p1').distance).toBeCloseTo(cap, 1);
+  });
+
+  it('con el estado completo muestra a todos', () => {
+    const { channel, at, view } = setup();
+    channel.emit(state(1000, [runner('p1', 0, 0), runner('p2', 0, 0), runner('bot-tortuga-0', 0, 0)]));
+    at(10);
+    expect(view().visibleRunnerIds).toBeNull();
+  });
+
+  it('una espectadora (la profesora) ve la carrera sin ser corredora', () => {
+    const channel = new FakeChannel();
+    let now = 0;
+    const board = new NetworkRaceController({ channel, raceStart, playerId: 'teacher', now: () => now, autoLoop: false });
+    channel.emit(state(1000, [runner('p1', 300, 0, { position: 1 }), runner('p2', 100, 0, { position: 2 })]));
+    now += 10;
+    board.tick();
+    const snap = board.getState().snapshot;
+    expect(snap.runners.map((r) => r.id)).toEqual(['p1', 'p2', 'bot-tortuga-0']);
+    expect(snap.runners.every((r) => r.challenge === null)).toBe(true);
+    board.submit('5');
+    expect(channel.sent).toEqual([]);
+  });
+});

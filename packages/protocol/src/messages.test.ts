@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_MESSAGE_BYTES } from './codes';
+import { MAX_MESSAGE_BYTES, MAX_SERVER_MESSAGE_BYTES } from './codes';
 import { encode, parseClientMessage, parseServerMessage, publicChallengeSchema } from './messages';
 
 const ok = (raw: unknown) => {
@@ -152,5 +152,71 @@ describe('auto del garaje en los mensajes', () => {
       }),
     );
     expect(start).toMatchObject({ ok: true, message: { runners: [{ car: { body: 'van', paint: 'gold' } }, { botProfile: 'turbo' }] } });
+  });
+});
+
+describe('modo clase en los mensajes', () => {
+  const parse = (m: unknown) => parseClientMessage(JSON.stringify(m));
+
+  it('crear una sala de clase, y sin modo sigue siendo una sala familiar', () => {
+    expect(parse({ type: 'create', name: 'Profe Ana', level: 5, mode: 'class' })).toMatchObject({
+      ok: true,
+      message: { mode: 'class' },
+    });
+    const family = parse({ type: 'create', name: 'Papá', level: 5 });
+    expect(family.ok && family.message.type === 'create' ? family.message.mode : 'x').toBeUndefined();
+    expect(parse({ type: 'create', name: 'Papá', level: 5, mode: 'escuela' }).ok).toBe(false);
+  });
+
+  it('quitar a un alumno y cerrar la sala', () => {
+    expect(parse({ type: 'kick', playerId: 'p7' })).toMatchObject({ ok: true, message: { type: 'kick', playerId: 'p7' } });
+    expect(parse({ type: 'kick' }).ok).toBe(false);
+    expect(parse({ type: 'kick', playerId: '' }).ok).toBe(false);
+    expect(parse({ type: 'closeRoom' })).toMatchObject({ ok: true });
+  });
+
+  it('la sala informa su modo y el rol de cada persona, y los mensajes viejos siguen valiendo', () => {
+    const room = (extra: object, player: object = {}) =>
+      parseServerMessage(
+        JSON.stringify({
+          type: 'room',
+          code: 'K7QF',
+          phase: 'lobby',
+          hostId: 'p1',
+          players: [{ id: 'p1', name: 'Profe Ana', level: 5, connected: true, status: 'lobby', ...player }],
+          ...extra,
+        }),
+      );
+    expect(room({ mode: 'class' }, { role: 'teacher' })).toMatchObject({
+      ok: true,
+      message: { mode: 'class', players: [{ role: 'teacher' }] },
+    });
+    expect(room({}).ok).toBe(true);
+    expect(room({ mode: 'colegio' }).ok).toBe(false);
+  });
+
+  it('errores nuevos para quien fue quitado y para la sala cerrada', () => {
+    for (const code of ['removed', 'room-closed']) {
+      expect(parseServerMessage(JSON.stringify({ type: 'error', code, message: 'x' })).ok).toBe(true);
+    }
+  });
+});
+
+describe('tamaño de los mensajes del servidor', () => {
+  const result = (i: number) => ({
+    id: `p${i}`, name: `Alumno número ${i}`, kind: 'human', position: i, chosenLevel: 3, finished: true,
+    finishTimeMs: 61_234.5678, distance: 1000, correct: 20, wrong: 2, accuracy: 0.9090909, correctPerMinute: 19.6543, maxLevel: 4,
+    presence: 'connected',
+  });
+
+  it('acepta la clasificación de una clase de 40, aunque supere el límite de los clientes', () => {
+    const raw = JSON.stringify({ type: 'results', results: Array.from({ length: 40 }, (_, i) => result(i + 1)) });
+    expect(raw.length).toBeGreaterThan(MAX_MESSAGE_BYTES);
+    expect(parseServerMessage(raw).ok).toBe(true);
+  });
+
+  it('sigue rechazando mensajes del servidor enormes', () => {
+    const raw = JSON.stringify({ type: 'ping', id: 1, pad: 'x'.repeat(MAX_SERVER_MESSAGE_BYTES) });
+    expect(parseServerMessage(raw)).toMatchObject({ ok: false });
   });
 });

@@ -5,13 +5,13 @@ import { DEFAULT_CAR } from '@mind-racer/protocol';
 import { garageStore } from '../garage/choice';
 import { settingsStore } from '../settings/settings';
 
-/** jsdom has no matchMedia; tests can flip `coarsePointer` to emulate touch screens. */
-export const media = { coarsePointer: false };
+/** jsdom has no matchMedia; tests can flip `coarsePointer` (touch screens) and `narrow` (phone width). */
+export const media = { coarsePointer: false, narrow: false };
 
 Object.defineProperty(window, 'matchMedia', {
   configurable: true,
   value: vi.fn((query: string) => ({
-    matches: query.includes('pointer: coarse') ? media.coarsePointer : false,
+    matches: query.includes('pointer: coarse') ? media.coarsePointer : query.includes('max-width: 640px') ? media.narrow : false,
     media: query,
     onchange: null,
     addEventListener: () => {},
@@ -29,4 +29,5 @@ afterEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   media.coarsePointer = false;
+  media.narrow = false;
 });

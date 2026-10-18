@@ -14,6 +14,8 @@ import type {
   NetRunnerState,
   Presence,
   RaceRunner,
+  Role,
+  RoomMode,
   ServerMessage,
 } from '@mind-racer/protocol';
 import { ROOM_LIMITS, type Connection } from './connection';
@@ -24,12 +26,16 @@ export interface RoomOptions {
   random: () => number;
   makeToken: () => string;
   raceConfig?: Partial<RaceConfig>;
+  /** Family by default. */
+  mode?: RoomMode;
 }
 
 type PlayerStatus = 'lobby' | 'racing' | 'results' | 'waiting';
 
 interface Player {
   id: string;
+  /** In a class room the creator is the teacher, who never races; everyone else is a student. */
+  role: Role;
   name: string;
   level: number;
   /** Chosen in the garage; the classic amber car when none (or an invalid one) arrived. */
@@ -63,6 +69,9 @@ interface ActiveRace {
  */
 export class Room {
   readonly code: string;
+  readonly mode: RoomMode;
+  /** Set when a class room is closed; the manager then drops the room. */
+  closed = false;
   private readonly options: RoomOptions;
   /** Insertion order is join order (used to pick the next host). */
   private readonly players = new Map<string, Player>();
@@ -70,10 +79,20 @@ export class Room {
   private race: ActiveRace | null = null;
   private nextPlayer = 1;
   private nextPing = 1;
+  private ticks = 0;
 
   constructor(code: string, options: RoomOptions) {
     this.code = code;
     this.options = options;
+    this.mode = options.mode ?? 'family';
+  }
+
+  private get isClass(): boolean {
+    return this.mode === 'class';
+  }
+
+  private students(): Player[] {
+    return [...this.players.values()].filter((p) => p.role === 'student');
   }
 
   get phase(): 'lobby' | 'racing' {
@@ -94,17 +113,24 @@ export class Room {
 
   /** Adds a person; returns their id, or an error code. */
   join(conn: Connection, name: string, level: number, car: Car = DEFAULT_CAR): string | ErrorCode {
-    if (this.players.size >= ROOM_LIMITS.capacity) return 'room-full';
+    if (this.closed) return 'room-not-found';
+    // The first person in a class room is the teacher; she does not take a student's place.
+    const role: Role = this.isClass && this.players.size === 0 ? 'teacher' : 'student';
+    const full = this.isClass
+      ? role === 'student' && this.students().length >= ROOM_LIMITS.classCapacity
+      : this.players.size >= ROOM_LIMITS.capacity;
+    if (full) return 'room-full';
     const now = this.options.now();
     const player: Player = {
       id: `p${this.nextPlayer++}`,
+      role,
       name,
       level,
       car: { ...car },
       token: this.options.makeToken(),
       conn,
       disconnectedAt: null,
-      status: this.race ? 'waiting' : 'lobby',
+      status: this.race && role === 'student' ? 'waiting' : 'lobby',
       rtt: null,
       ping: null,
       lastPingAt: now,
@@ -136,7 +162,10 @@ export class Room {
       this.sendRaceStart(player);
       player.sentChallengeSeq = null;
       this.syncChallenge(player);
-      this.send(player, this.stateMessage(this.race.session.snapshot()));
+      this.send(player, this.stateFor(player, this.race.session.snapshot()));
+    } else if (this.race && player.role === 'teacher') {
+      this.sendRaceStart(player);
+      this.send(player, this.stateFor(player, this.race.session.snapshot()));
     }
     return player.id;
   }
@@ -154,6 +183,8 @@ export class Room {
   leave(playerId: string): void {
     const player = this.players.get(playerId);
     if (!player) return;
+    // A class cannot go on without its teacher.
+    if (player.role === 'teacher') return this.close();
     if (this.race?.humanIds.includes(playerId)) this.race.left.add(playerId);
     this.players.delete(playerId);
     if (this.hostId === playerId) this.hostId = this.players.keys().next().value ?? null;
@@ -186,6 +217,12 @@ export class Room {
         return;
       case 'pong':
         return this.pong(player, message.id);
+      case 'kick':
+        return this.kick(player, message.playerId);
+      case 'closeRoom':
+        if (player.role === 'teacher') this.close();
+        else this.error(player, 'not-host', 'Solo la profesora puede cerrar la sala');
+        return;
       default:
         // create / join / rejoin / leave are handled by the RoomManager.
         return;
@@ -197,11 +234,13 @@ export class Room {
   private start(player: Player): void {
     if (player.id !== this.hostId) return this.error(player, 'not-host', 'Solo el anfitrión puede iniciar la carrera');
     if (this.race || player.status !== 'lobby') return;
-    const racers = [...this.players.values()].filter((p) => p.status === 'lobby' && p.conn);
+    // The teacher never races; class races have no bots.
+    // In a class, students still looking at the last results join the next race too: the teacher leads the pace.
+    const racers = this.students().filter((p) => p.conn && (p.status === 'lobby' || (this.isClass && p.status === 'results')));
     if (racers.length === 0) return;
 
     const botLevel = Math.min(...racers.map((p) => p.level));
-    const botCount = Math.max(0, ROOM_LIMITS.capacity - racers.length);
+    const botCount = this.isClass ? 0 : Math.max(0, ROOM_LIMITS.capacity - racers.length);
     const session = new RaceSession({
       seed: Math.floor(this.options.random() * 2 ** 32),
       level: botLevel,
@@ -230,8 +269,36 @@ export class Room {
       p.sentChallengeSeq = null;
       this.sendRaceStart(p);
     }
+    const teacher = this.teacher();
+    if (teacher) this.sendRaceStart(teacher);
     this.broadcastRoom();
     this.broadcastState();
+  }
+
+  private teacher(): Player | undefined {
+    return [...this.players.values()].find((p) => p.role === 'teacher');
+  }
+
+  /** Class rooms: the teacher removes a student, who cannot rejoin with that session. */
+  private kick(by: Player, targetId: string): void {
+    if (by.role !== 'teacher') return this.error(by, 'not-host', 'Solo la profesora puede quitar alumnos');
+    const target = this.players.get(targetId);
+    if (!target || target.role !== 'student') return;
+    if (this.race?.humanIds.includes(target.id)) this.race.left.add(target.id);
+    this.error(target, 'removed', 'La profesora te quitó de la sala');
+    this.players.delete(target.id);
+    this.broadcastRoom();
+  }
+
+  /** Ends a class room for everyone; the manager drops it and the code stops working. */
+  private close(): void {
+    for (const p of this.players.values()) {
+      if (p.role === 'student') this.error(p, 'room-closed', 'La profesora cerró la sala');
+    }
+    this.players.clear();
+    this.race = null;
+    this.hostId = null;
+    this.closed = true;
   }
 
   private answer(player: Player, seq: number, input: string): void {
@@ -291,8 +358,10 @@ export class Room {
       race.session.advanceTo(now - race.epoch);
       if (race.session.race.phase !== 'finished' && this.everyoneDone(race, now)) race.session.finishNow();
       for (const player of this.racingPlayers()) this.syncChallenge(player);
-      this.broadcastState();
-      if (race.session.race.phase === 'finished') this.finishRace(race);
+      const finished = race.session.race.phase === 'finished';
+      // Class rooms send state 5 times a second instead of every tick (design D3); always the last one.
+      if (!this.isClass || this.ticks++ % ROOM_LIMITS.classStateEveryTicks === 0 || finished) this.broadcastState();
+      if (finished) this.finishRace(race);
     }
 
     // People gone longer than the grace period leave the room (not mid-race: their car stays).
@@ -338,6 +407,8 @@ export class Room {
     for (const player of this.players.values()) {
       if (player.status === 'racing') {
         player.status = 'results';
+        this.send(player, { type: 'results', results });
+      } else if (player.role === 'teacher') {
         this.send(player, { type: 'results', results });
       } else if (player.status === 'waiting') {
         player.status = 'lobby';
@@ -410,14 +481,32 @@ export class Room {
 
   private broadcastState(): void {
     if (!this.race) return;
-    const message = this.stateMessage(this.race.session.snapshot());
-    for (const player of this.racingPlayers()) this.send(player, message);
+    const snapshot = this.race.session.snapshot();
+    const full = this.stateMessage(snapshot);
+    if (!this.isClass) {
+      for (const player of this.racingPlayers()) this.send(player, full);
+      return;
+    }
+    const teacher = this.teacher();
+    if (teacher) this.send(teacher, full);
+    for (const player of this.racingPlayers()) this.send(player, this.stateFor(player, snapshot, full));
+  }
+
+  /**
+   * What one person receives: everyone in a family room or for the teacher; in a class race,
+   * a student gets only themselves and the leaders (design D3).
+   */
+  private stateFor(player: Player, snapshot: RaceSnapshot, full = this.stateMessage(snapshot)): ServerMessage {
+    if (!this.isClass || player.role === 'teacher' || full.type !== 'state') return full;
+    const runners = full.runners.filter((r) => r.position <= ROOM_LIMITS.classLeaders || r.id === player.id);
+    return { ...full, runners };
   }
 
   private broadcastRoom(): void {
     const message: ServerMessage = {
       type: 'room',
       code: this.code,
+      mode: this.mode,
       phase: this.phase,
       hostId: this.hostId,
       players: [...this.players.values()].map((p) => ({
@@ -426,6 +515,7 @@ export class Room {
         level: p.level,
         connected: p.conn !== null,
         status: p.status,
+        role: p.role,
         car: { ...p.car },
       })),
     };

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MAX_LEVEL, MIN_LEVEL } from '@mind-racer/engine';
-import { MAX_MESSAGE_BYTES, normalizeRoomCode } from './codes';
+import { MAX_MESSAGE_BYTES, MAX_SERVER_MESSAGE_BYTES, normalizeRoomCode } from './codes';
 import { carSchema, sentCarSchema } from './garage';
 
 export const NAME_MAX_LENGTH = 20;
@@ -39,10 +39,23 @@ export const publicChallengeSchema = z.strictObject({
   issuedAtMs: z.number(),
 });
 
+/** A family room (up to 4, bots, everyone races) or a class room (a teacher who does not race, up to 40 students). */
+export const roomModeSchema = z.enum(['family', 'class']);
+export type RoomMode = z.infer<typeof roomModeSchema>;
+export const roleSchema = z.enum(['teacher', 'student']);
+export type Role = z.infer<typeof roleSchema>;
+
 // ---------- client → server ----------
 
 export const clientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('create'), name: nameSchema, level: levelSchema, car: sentCarSchema }),
+  z.object({
+    type: z.literal('create'),
+    name: nameSchema,
+    level: levelSchema,
+    car: sentCarSchema,
+    /** Omitted means a family room. */
+    mode: roomModeSchema.optional(),
+  }),
   z.object({ type: z.literal('join'), code: roomCodeSchema, name: nameSchema, level: levelSchema, car: sentCarSchema }),
   z.object({ type: z.literal('rejoin'), code: roomCodeSchema, token: z.string().min(1).max(64) }),
   z.object({ type: z.literal('setLevel'), level: levelSchema }),
@@ -52,6 +65,10 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('backToRoom') }),
   z.object({ type: z.literal('pong'), id: z.number().int() }),
   z.object({ type: z.literal('leave') }),
+  /** Class rooms: the teacher removes a student. */
+  z.object({ type: z.literal('kick'), playerId: z.string().min(1).max(32) }),
+  /** Class rooms: the teacher ends the class for everyone. */
+  z.object({ type: z.literal('closeRoom') }),
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
@@ -65,6 +82,8 @@ export const roomPlayerSchema = z.object({
   level: levelSchema,
   connected: z.boolean(),
   status: playerStatusSchema,
+  /** Optional so older servers still parse; absent means student. */
+  role: roleSchema.optional(),
   /** Optional so older servers still parse; the current server always sends it. */
   car: carSchema.optional(),
 });
@@ -133,6 +152,10 @@ export const errorCodeSchema = z.enum([
   'not-in-room',
   'rate-limited',
   'rejoin-failed',
+  /** The teacher removed this person from the class room. */
+  'removed',
+  /** The teacher closed the class room. */
+  'room-closed',
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
@@ -141,6 +164,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('room'),
     code: z.string(),
+    /** Optional so older servers still parse; absent means a family room. */
+    mode: roomModeSchema.optional(),
     phase: z.enum(['lobby', 'racing']),
     hostId: z.string().nullable(),
     players: z.array(roomPlayerSchema),
@@ -170,9 +195,9 @@ export type ServerMessage = z.infer<typeof serverMessageSchema>;
 
 export type ParseResult<T> = { ok: true; message: T } | { ok: false; error: string };
 
-function parseWith<T>(schema: z.ZodType<T>, raw: unknown): ParseResult<T> {
+function parseWith<T>(schema: z.ZodType<T>, raw: unknown, maxBytes: number): ParseResult<T> {
   if (typeof raw !== 'string') return { ok: false, error: 'El mensaje debe ser texto' };
-  if (byteLength(raw) > MAX_MESSAGE_BYTES) return { ok: false, error: 'Mensaje demasiado grande' };
+  if (byteLength(raw) > maxBytes) return { ok: false, error: 'Mensaje demasiado grande' };
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -185,8 +210,9 @@ function parseWith<T>(schema: z.ZodType<T>, raw: unknown): ParseResult<T> {
     : { ok: false, error: result.error.issues[0]?.message ?? 'Mensaje inválido' };
 }
 
-export const parseClientMessage = (raw: unknown) => parseWith(clientMessageSchema, raw);
-export const parseServerMessage = (raw: unknown) => parseWith(serverMessageSchema, raw);
+/** Messages from clients keep a small limit: they reach the server from anyone. */
+export const parseClientMessage = (raw: unknown) => parseWith(clientMessageSchema, raw, MAX_MESSAGE_BYTES);
+export const parseServerMessage = (raw: unknown) => parseWith(serverMessageSchema, raw, MAX_SERVER_MESSAGE_BYTES);
 
 export function encode(message: ClientMessage | ServerMessage): string {
   return JSON.stringify(message);

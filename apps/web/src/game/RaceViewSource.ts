@@ -8,6 +8,11 @@ export interface RaceViewState {
   /** Ms left of the resume countdown, 0 when not resuming. */
   resumeRemainingMs: number;
   botProfiles: Readonly<Record<string, BotProfileId>>;
+  /**
+   * Runners to draw when the server only sends some of them (class races: you and the leaders);
+   * null means everyone.
+   */
+  visibleRunnerIds: readonly string[] | null;
   /** Garage car of each person (local: the player; online: everyone). Bots have none. */
   cars: Readonly<Record<string, Car>>;
   /** Presence of people in an online race; empty for local races. */

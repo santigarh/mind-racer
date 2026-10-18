@@ -17,7 +17,7 @@ Mind Racer ya funciona bien para una familia (salas de 4), pero el mismo juego s
 - **Envío de estado reducido** en salas de clase:
   - cada alumno recibe solo su propio estado y el de los 5 primeros, 5 veces por segundo;
   - el tablero recibe a todos, también 5 veces por segundo;
-  - el celular del alumno muestra su carril y los de los 5 primeros.
+  - el celular del alumno muestra su carril y los de los 3 primeros (los 5 primeros en pantallas más anchas).
 - Las salas familiares no cambian (4 personas, bots, 20 envíos por segundo).
 - Fuera de alcance:
   - cuentas de profesora o de alumno, y listas de clase guardadas;

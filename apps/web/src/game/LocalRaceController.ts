@@ -197,6 +197,7 @@ export class LocalRaceController implements RaceViewSource {
       resumeRemainingMs: this.resumeRemainingMs,
       botProfiles: this.botProfiles,
       cars: this.cars,
+      visibleRunnerIds: null,
       presence: NO_PRESENCE,
       reconnecting: false,
     };

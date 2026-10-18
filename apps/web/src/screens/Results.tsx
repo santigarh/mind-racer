@@ -23,6 +23,8 @@ interface ResultsProps {
   onMenu: () => void;
   online?: boolean;
   presence?: Readonly<Record<string, Presence>>;
+  /** Class races: show only the first this many places, plus the player. */
+  topPlaces?: number;
   /** Garage vehicles and paints this race unlocked, by name. */
   garageUnlocks?: readonly string[];
   /** Daily challenge: the streak and the text to share; replaces "Correr de nuevo" with "Compartir resultado". */
@@ -41,6 +43,7 @@ export function Results({
   presence = {},
   daily,
   garageUnlocks = [],
+  topPlaces,
 }: ResultsProps) {
   const results = snapshot.results ?? [];
   const me = results.find((r) => r.id === playerId)!;
@@ -123,7 +126,7 @@ export function Results({
             </tr>
           </thead>
           <tbody>
-            {results.map((r) => (
+            {(topPlaces ? results.filter((r) => r.position <= topPlaces || r.id === playerId) : results).map((r) => (
               <tr
                 key={r.id}
                 data-player={r.id === playerId}

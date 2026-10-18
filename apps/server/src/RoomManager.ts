@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { RaceConfig } from '@mind-racer/engine';
-import { generateRoomCode, parseClientMessage, type ErrorCode } from '@mind-racer/protocol';
+import { generateRoomCode, parseClientMessage, type ErrorCode, type RoomMode } from '@mind-racer/protocol';
 import { ROOM_LIMITS, type Connection } from './connection';
 import { Room } from './Room';
 
@@ -23,6 +23,8 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   'not-in-room': 'Primero crea una sala o únete a una',
   'rate-limited': 'Demasiados mensajes',
   'rejoin-failed': 'No pudimos volver a la sala',
+  removed: 'La profesora te quitó de la sala',
+  'room-closed': 'La profesora cerró la sala',
 };
 
 /** All open rooms, plus which connection belongs to which room and player. */
@@ -78,7 +80,7 @@ export class RoomManager {
         this.leaveCurrent(conn);
         if (this.rooms.size >= this.maxRooms) return this.error(conn, 'too-many-rooms');
         if (!this.allowRoomFrom(this.ips.get(conn))) return this.error(conn, 'rate-limited', TOO_MANY_ROOMS_TEXT);
-        const room = this.createRoom();
+        const room = this.createRoom(message.mode ?? 'family');
         return this.bind(conn, room, room.join(conn, message.name, message.level, message.car));
       }
       case 'join': {
@@ -99,7 +101,16 @@ export class RoomManager {
       default:
         if (!binding) return this.error(conn, 'not-in-room');
         binding.room.handle(binding.playerId, message);
+        this.dropIfClosed(binding.room);
     }
+  }
+
+  /** A closed class room disappears at once: its code stops working and its connections are unbound. */
+  private dropIfClosed(room: Room): void {
+    if (!room.closed) return;
+    this.rooms.delete(room.code);
+    this.emptySince.delete(room.code);
+    for (const [conn, binding] of this.bindings) if (binding?.room === room) this.bindings.set(conn, null);
   }
 
   /** Drives every room and closes rooms nobody has been connected to for a while. */
@@ -112,6 +123,10 @@ export class RoomManager {
     }
     for (const [code, room] of this.rooms) {
       room.tick();
+      if (room.closed) {
+        this.dropIfClosed(room);
+        continue;
+      }
       if (room.connectedCount > 0) {
         this.emptySince.delete(code);
         continue;
@@ -139,13 +154,14 @@ export class RoomManager {
     return true;
   }
 
-  private createRoom(): Room {
+  private createRoom(mode: RoomMode): Room {
     let code = generateRoomCode(this.random);
     while (this.rooms.has(code)) code = generateRoomCode(this.random);
     const room = new Room(code, {
       now: this.now,
       random: this.random,
       makeToken: this.makeToken,
+      mode,
       ...(this.raceConfig ? { raceConfig: this.raceConfig } : {}),
     });
     this.rooms.set(code, room);
@@ -162,6 +178,7 @@ export class RoomManager {
     if (!binding) return;
     binding.room.leave(binding.playerId);
     this.bindings.set(conn, null);
+    this.dropIfClosed(binding.room);
   }
 
   private error(conn: Connection, code: ErrorCode, message = ERROR_TEXT[code]): void {

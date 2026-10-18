@@ -5,6 +5,11 @@ const ROOM_CODE_PATTERN = new RegExp(`^[${ROOM_CODE_ALPHABET}]{${ROOM_CODE_LENGT
 
 /** Max size of one WebSocket message, in bytes. */
 export const MAX_MESSAGE_BYTES = 4096;
+/**
+ * Max size of a message from the server: a class room (40 students) sends rooms, race starts, the
+ * teacher's full state and results well above the client limit.
+ */
+export const MAX_SERVER_MESSAGE_BYTES = 64 * 1024;
 
 /** Trims, removes spaces and upper-cases what the player typed: " k7qf " → "K7QF". */
 export function normalizeRoomCode(raw: string): string {

@@ -102,6 +102,28 @@ En el **Garaje** (botón en el menú) eliges tu vehículo y tu pintura. Se desbl
 Tu auto corre en la pista y, en las salas, todos ven el de cada quien en el lobby, la pista y los resultados.
 Se elige antes de entrar a una sala. Los resultados avisan cuando una carrera te desbloquea algo nuevo.
 
+## Modo clase
+
+Para usar Mind Racer con un grupo de hasta 40 alumnos, en vivo:
+
+1. La profesora, desde una computadora conectada al proyector, entra a **Jugar con amigos → Crear sala de clase**.
+   El tablero muestra el código y el QR en grande; ella no corre.
+2. Los alumnos escanean el QR con su celular (o entran a **Unirse** con el código) y eligen su nivel en la sala.
+3. **Iniciar carrera** hace correr a todos los alumnos conectados, sin bots. El tablero muestra el avance de todos;
+   cada alumno ve su carril, los 5 primeros y su posición.
+4. Al terminar: clasificación completa, **Descargar CSV** (se genera en el navegador, se abre en Excel) y
+   **Nueva carrera**. **Cerrar sala** termina la clase para todos.
+
+La profesora puede **quitar** a un alumno (por ejemplo, por un nombre inadecuado); no puede volver con esa sesión.
+No hay cuentas ni se guarda nada en el servidor: todo se borra al cerrar la sala.
+
+Antes de la clase:
+
+- **Abre la sala unos minutos antes.** El servidor gratis se duerme y el primer acceso puede tardar hasta un minuto.
+- **Prueba la red de la escuela** con un celular conectado a su wifi: algunas redes bloquean WebSockets o los dominios
+  `workers.dev` / `onrender.com`. Si no conecta, usa datos móviles o la red local (sección de arriba).
+- **No publiques cambios durante una clase:** el servidor se reinicia y cierra la sala.
+
 ## Publicar en internet
 
 La web va en **Cloudflare Workers** como sitio estático (gratis, siempre disponible) y el servidor multijugador en **Render** (plan gratis).

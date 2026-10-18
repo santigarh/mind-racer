@@ -28,6 +28,10 @@ const STATUS_TEXT: Partial<Record<RoomPlayer['status'], string>> = {
 export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel, onStart, onLeave }: LobbyProps) {
   const me = room.players.find((p) => p.id === playerId);
   const isHost = room.hostId === playerId;
+  // A class room lists only the students (the teacher runs the board) and holds up to 40 of them.
+  const isClass = room.mode === 'class';
+  const people = isClass ? room.players.filter((p) => p.role !== 'teacher') : room.players;
+  const capacity = isClass ? 40 : 4;
   const raceInProgress = room.phase === 'racing';
 
   return (
@@ -60,10 +64,13 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
       <div className={styles.lobbyGrid}>
         <section className={styles.card} aria-labelledby="players-title">
           <h2 id="players-title" className={styles.cardTitle}>
-            Jugadores <span className={styles.muted}>{room.players.length} de 4</span>
+            {isClass ? 'Alumnos' : 'Jugadores'}{' '}
+            <span className={styles.muted}>
+              {people.length} de {capacity}
+            </span>
           </h2>
           <ul className={styles.players}>
-            {room.players.map((p) => (
+            {people.map((p) => (
               <li key={p.id} className={styles.player} data-me={p.id === playerId} aria-label={playerLabel(p, room.hostId)}>
                 <span className={styles.playerLevel}>N{p.level}</span>
                 {p.car && <CarIcon car={p.car} size={24} className={styles.playerCar} />}
@@ -77,7 +84,7 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
               </li>
             ))}
           </ul>
-          <p className={styles.muted}>Los carriles libres se llenan con bots.</p>
+          {!isClass && <p className={styles.muted}>Los carriles libres se llenan con bots.</p>}
         </section>
 
         <section className={styles.card} aria-labelledby="level-title">
@@ -118,7 +125,7 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
               </Button>
             ) : (
               <p className={styles.notice} role="status">
-                Esperando a que el anfitrión inicie.
+                {isClass ? 'Esperando a que la profesora inicie.' : 'Esperando a que el anfitrión inicie.'}
               </p>
             )}
           </div>

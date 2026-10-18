@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { ArrowLeft, Plus, SignIn } from '@phosphor-icons/react';
+import { ArrowLeft, Plus, SignIn, ChalkboardTeacher } from '@phosphor-icons/react';
 import { ROOM_CODE_LENGTH, isRoomCode, normalizeRoomCode } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
 import styles from './Multiplayer.module.css';
@@ -15,6 +15,8 @@ interface EntryProps {
   /** Code from a room link, shown in the field. */
   initialCode?: string;
   onCreate: () => void;
+  /** Creates a class room where this person is the teacher (spec classroom-mode). */
+  onCreateClass?: () => void;
   onJoin: (code: string) => void;
   onBack: () => void;
 }
@@ -22,7 +24,16 @@ interface EntryProps {
 const codeFormatError = () => `El código tiene ${ROOM_CODE_LENGTH} letras o números, por ejemplo K7QF.`;
 
 /** "Jugar con amigos": create a room or join one with its code. */
-export function Entry({ pending, error, offlineSince, initialCode = '', onCreate, onJoin, onBack }: EntryProps) {
+export function Entry({
+  pending,
+  error,
+  offlineSince,
+  initialCode = '',
+  onCreate,
+  onCreateClass,
+  onJoin,
+  onBack,
+}: EntryProps) {
   const codeId = useId();
   const errorId = useId();
   const [code, setCode] = useState(initialCode);
@@ -78,6 +89,19 @@ export function Entry({ pending, error, offlineSince, initialCode = '', onCreate
             Crear sala
           </Button>
         </section>
+
+        {onCreateClass && (
+          <section className={styles.card} aria-labelledby="class-title">
+            <h2 id="class-title" className={styles.cardTitle}>
+              Sala de clase
+            </h2>
+            <p className={styles.muted}>Para profesoras: proyecta el código y tus alumnos corren desde su celular.</p>
+            <Button variant="secondary" size="large" onClick={onCreateClass} disabled={pending}>
+              <ChalkboardTeacher size={20} aria-hidden />
+              Crear sala de clase
+            </Button>
+          </section>
+        )}
 
         <form className={styles.card} onSubmit={join} noValidate aria-labelledby="join-title">
           <h2 id="join-title" className={styles.cardTitle}>

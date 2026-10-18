@@ -6,6 +6,7 @@ import { RaceScreen } from '../race/RaceScreen';
 import { Results } from '../screens/Results';
 import type { MultiplayerSession } from '../net/MultiplayerSession';
 import { newlyUnlocked, progressOf } from '../garage/unlocks';
+import { BoardLobby, BoardRace, BoardResults } from '../classroom/TeacherBoard';
 import { Entry } from './Entry';
 import { Lobby } from './Lobby';
 
@@ -28,6 +29,9 @@ interface Finished {
   garageUnlocks: string[];
 }
 
+/** Places a student sees in the standings of a class race (spec classroom-mode). */
+const CLASS_TOP_PLACES = 10;
+
 /** Online races never change the daily streak, so it plays no part in what they unlock. */
 const NO_STREAK = { bestStreak: 0 };
 
@@ -49,7 +53,10 @@ export function MultiplayerApp({
 
   // Opened from a room link: join that room (join ignores repeats, e.g. StrictMode effects).
   // Otherwise, back from a reload while in a room: rejoin it.
-  const joinCode = autoJoinCode !== null && autoJoinCode !== session.resumeCode() ? autoJoinCode : null;
+  // Decided once on mount: after being removed or a closed class, the link must not join again.
+  const [joinCode] = useState(() =>
+    autoJoinCode !== null && autoJoinCode !== session.resumeCode() ? autoJoinCode : null,
+  );
   const profileForJoin = useRef(profile);
   const carForJoin = useRef(car);
   useEffect(() => {
@@ -96,6 +103,22 @@ export function MultiplayerApp({
     onExit();
   };
 
+  // Teacher board: the race whose results she already closed with "Nueva carrera", and how many races ran.
+  const [boardSeed, setBoardSeed] = useState<number | null>(null);
+  const seenSeeds = useRef(new Set<number>());
+  if (race) seenSeeds.current.add(race.seed);
+  const raceCount = seenSeeds.current.size;
+  // Re-render when the race gets its results (the board switches to the standings).
+  const [resultsSeed, setResultsSeed] = useState<number | null>(null);
+  useEffect(() => {
+    if (!race) return;
+    const check = () => {
+      if (race.getState().snapshot.results) setResultsSeed(race.seed);
+    };
+    check();
+    return race.subscribe(check);
+  }, [race]);
+
   const me = view.room?.players.find((p) => p.id === view.playerId);
 
   if (!view.playerId || !view.room) {
@@ -106,11 +129,44 @@ export function MultiplayerApp({
         offlineSince={view.offlineSince}
         initialCode={autoJoinCode ?? undefined}
         onCreate={() => session.create(profile.name, profile.unlockedLevel, car)}
+        onCreateClass={() => session.create(profile.name, profile.unlockedLevel, car, 'class')}
         onJoin={(code) => session.join(code, profile.name, profile.unlockedLevel, car)}
         onBack={() => {
           session.dispose();
           onExit();
         }}
+      />
+    );
+  }
+
+  // The teacher of a class room never races: she gets the board for the projector (design D6).
+  if (me?.role === 'teacher') {
+    const closeRoom = () => {
+      session.closeRoom();
+      session.dispose();
+      onExit();
+    };
+    const raceResults = race && resultsSeed === race.seed ? race.getState().snapshot.results : null;
+    if (race && boardSeed !== race.seed && !raceResults) {
+      return <BoardRace room={view.room} race={race} onClose={closeRoom} />;
+    }
+    if (race && boardSeed !== race.seed && raceResults) {
+      return (
+        <BoardResults
+          room={view.room}
+          results={raceResults}
+          raceNumber={raceCount}
+          onClose={closeRoom}
+          onNext={() => setBoardSeed(race.seed)}
+        />
+      );
+    }
+    return (
+      <BoardLobby
+        room={view.room}
+        onClose={closeRoom}
+        onStart={() => session.start()}
+        onKick={(id) => session.kick(id)}
       />
     );
   }
@@ -138,6 +194,7 @@ export function MultiplayerApp({
         presence={race.getState().presence}
         update={finished.update}
         garageUnlocks={finished.garageUnlocks}
+        topPlaces={view.room?.mode === 'class' ? CLASS_TOP_PLACES : undefined}
         onPlayAgain={() => session.backToRoom()}
         onMenu={leave}
       />

@@ -39,6 +39,12 @@ interface Received {
   at: number;
 }
 
+/** Last news about one runner: class races only send each person some of the runners (design D3). */
+interface Known {
+  runner: NetRunnerState;
+  at: number;
+}
+
 /**
  * Race view for an online race: the server decides everything; this mirrors its `state`
  * messages, estimates car positions between them with the engine's physics and sends answers.
@@ -59,6 +65,8 @@ export class NetworkRaceController implements RaceViewSource {
   private readonly botProfiles: Readonly<Record<string, BotProfileId>>;
   private readonly cars: Readonly<Record<string, Car>>;
   private received: Received | null = null;
+  /** Latest state of every runner ever received; a runner missing from a message keeps its last one. */
+  private readonly known = new Map<string, Known>();
   /** Distance offsets being blended away, per runner. */
   private corrections = new Map<string, { offset: number; at: number }>();
   private challenge: PublicChallenge | null = null;
@@ -151,6 +159,7 @@ export class NetworkRaceController implements RaceViewSource {
         const now = this.now();
         const before = this.received ? this.estimate(now) : null;
         this.received = { message, at: now };
+        for (const runner of message.runners) this.known.set(runner.id, { runner, at: now });
         if (before) {
           const after = this.estimate(now);
           for (const [id, distance] of before) {
@@ -190,8 +199,9 @@ export class NetworkRaceController implements RaceViewSource {
     const out = new Map<string, number>();
     const received = this.received;
     if (!received) return out;
-    const dt = Math.min(MAX_EXTRAPOLATION_MS, Math.max(0, now - received.at)) / 1000;
-    for (const r of received.message.runners) {
+    for (const { runner: r, at } of this.known.values()) {
+      // A runner we stopped hearing about is extrapolated at most this long, then stays put.
+      const dt = Math.min(MAX_EXTRAPOLATION_MS, Math.max(0, now - at)) / 1000;
       const moving = received.message.phase === 'racing' && r.finishTimeMs === null;
       const travel = moving ? (r.speed * (1 - Math.exp(-DECAY_K * dt))) / DECAY_K : 0;
       out.set(r.id, Math.min(this.distance, r.distance + travel));
@@ -216,7 +226,7 @@ export class NetworkRaceController implements RaceViewSource {
     const now = this.now();
     const received = this.received;
     const sinceMs = received ? now - received.at : 0;
-    const serverRunners = new Map<string, NetRunnerState>((received?.message.runners ?? []).map((r) => [r.id, r]));
+    const serverRunners = new Map<string, NetRunnerState>([...this.known].map(([id, k]) => [id, k.runner]));
     const estimated = this.estimate(now);
     const presence: Record<string, Presence> = {};
 
@@ -228,6 +238,7 @@ export class NetworkRaceController implements RaceViewSource {
       const isMe = meta.id === this.playerId;
       presence[meta.id] = s?.presence ?? 'connected';
       const moving = phase === 'racing' && s?.finishTimeMs === null;
+      const heardMs = now - (this.known.get(meta.id)?.at ?? now);
       return {
         id: meta.id,
         name: meta.name,
@@ -236,7 +247,7 @@ export class NetworkRaceController implements RaceViewSource {
         index,
         chosenLevel: meta.chosenLevel,
         distance: this.displayedDistance(meta.id, estimated.get(meta.id) ?? 0, now),
-        speed: s ? (moving ? s.speed * Math.exp((-DECAY_K * Math.min(MAX_EXTRAPOLATION_MS, sinceMs)) / 1000) : s.speed) : 0,
+        speed: s ? (moving ? s.speed * Math.exp((-DECAY_K * Math.min(MAX_EXTRAPOLATION_MS, heardMs)) / 1000) : s.speed) : 0,
         streak: s?.streak ?? 0,
         nitroActive: s?.nitroActive ?? false,
         correct: s?.correct ?? 0,
@@ -273,6 +284,10 @@ export class NetworkRaceController implements RaceViewSource {
       resumeRemainingMs: 0,
       botProfiles: this.botProfiles,
       cars: this.cars,
+      visibleRunnerIds:
+        received && received.message.runners.length < this.runners.length
+          ? received.message.runners.map((r) => r.id)
+          : null,
       presence,
       reconnecting: this.reconnecting,
     };

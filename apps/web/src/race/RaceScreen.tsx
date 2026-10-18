@@ -11,12 +11,15 @@ import { Hud } from './Hud';
 import { Overlay } from './Overlay';
 import { Track } from './Track';
 import { useCoarsePointer } from './useCoarsePointer';
+import { useNarrowScreen } from './useNarrowScreen';
 import { useRaceFeedback, type RaceFeedbackOptions } from './useRaceFeedback';
 import { useSettings } from '../settings/settings';
 import styles from './RaceScreen.module.css';
 
 const EXIT_DIALOG = 'exit-dialog';
 const GO_SIGNAL_MS = 800;
+/** Leaders a student sees on a phone in a class race (spec classroom-mode › Vista del alumno). */
+const PHONE_LEADERS = 3;
 
 interface RaceScreenProps {
   controller: RaceViewSource;
@@ -36,10 +39,18 @@ export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, f
   useRaceFeedback(state, controller.playerId, { ...feedback, enabled: sound });
   const { snapshot } = state;
   const coarse = useCoarsePointer();
+  const narrow = useNarrowScreen();
   const [confirmExit, setConfirmExit] = useState(false);
   const player = snapshot.runners.find((r) => r.id === controller.playerId)!;
   const finished = snapshot.phase === 'finished';
   const online = controller.mode === 'network';
+  // Class races only send you and the leaders; on phones show the first 3 so the race still fits.
+  const visible = state.visibleRunnerIds;
+  const trackRunners = visible
+    ? snapshot.runners.filter(
+        (r) => visible.includes(r.id) && (r.id === controller.playerId || !narrow || r.position <= PHONE_LEADERS),
+      )
+    : snapshot.runners;
 
   const openExit = useCallback(() => {
     if (finished) return;
@@ -114,7 +125,7 @@ export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, f
 
       <div className={styles.arena}>
         <Track
-          runners={snapshot.runners}
+          runners={trackRunners}
           distance={snapshot.distance}
           playerId={controller.playerId}
           botProfiles={state.botProfiles}

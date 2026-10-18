@@ -47,6 +47,7 @@ Ver proposal.md (Why) y las specs de este cambio. Estado actual relevante (revis
   - responde con error si no hay alumnos.
 - La profesora recibe `raceStart` y luego el estado completo como espectadora: no recibe desafíos ni puede responder.
 - `everyoneDone` solo considera a los alumnos, igual que hoy con las personas.
+- *Encontrado al implementar:* tras una carrera, los alumnos quedan en "resultados" hasta pulsar "Volver a la sala". En clase, "Iniciar carrera" también incluye a los alumnos conectados que siguen mirando resultados, para que la profesora marque el ritmo sin esperar a que cada uno vuelva. Sin alumnos, el servidor ignora el inicio sin enviar error: el botón ya está deshabilitado.
 
 ### D3. Estado reducido a 5 Hz
 - En clase, `broadcastState` se ejecuta uno de cada 4 ticks (200 ms). La simulación sigue a 50 ms.
@@ -56,12 +57,18 @@ Ver proposal.md (Why) y las specs de este cambio. Estado actual relevante (revis
   - alumnos: 30 × 6 × 180 B × 5/s ≈ 160 KB/s;
   - tablero: 30 × 180 B × 5/s ≈ 27 KB/s;
   - total: unos 35 MB por carrera, contra ~580 MB con el envío actual.
+  - *Medido* con el servidor compilado, una profesora y 30 alumnos simulados respondiendo:
+    - cada alumno recibe ~4,9 KB/s (4 estados por segundo, a lo sumo 6 corredores);
+    - la profesora, ~24 KB/s;
+    - en total, ~179 KB/s, unos 32 MB por carrera de 3 minutos.
 - Cliente: `NetworkRaceController` guarda el último estado de cada corredor en un mapa y lo actualiza con lo que llega. Un corredor que deja de llegar conserva su último dato y no se extrapola más allá de él.
 - La vista del alumno usa los ids presentes en el último `state` para elegir qué carriles mostrar.
+- *Ajustado tras medir en el navegador:* con 6 carriles, la vista del alumno medía 870 px en un celular de 375 × 812 con teclado, así que había que desplazar. En pantallas de hasta 640 px se muestran el alumno y los 3 primeros (4 carriles, como la carrera familiar, que sí cabe); en pantallas más anchas, los 5 primeros. El servidor sigue enviando los 5 primeros, así que el ancho de banda no cambia.
 
 ### D4. Fin de carrera y resultados
 - El mensaje `results` sigue llevando a todos los corredores: se envía una sola vez, unos 40 × 150 B ≈ 6 KB.
 - El alumno ve su resultado y los 10 primeros. La profesora ve a todos.
+- *Encontrado al implementar:* el protocolo limitaba todos los mensajes a 4096 bytes, y con 28 o más alumnos `results`, `room`, `raceStart` y el estado completo del tablero lo superan. Los mensajes de clientes conservan ese límite, que protege al servidor; los del servidor aceptan hasta 64 KB (`MAX_SERVER_MESSAGE_BYTES`).
 - El progreso del alumno (perfil, desbloqueos y garaje) se aplica igual que hoy. La profesora no corre, así que su perfil no cambia.
 
 ### D5. Quitar y cerrar
