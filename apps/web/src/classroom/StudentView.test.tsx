@@ -96,3 +96,28 @@ describe('vista del alumno en una carrera de clase', () => {
     expect(laneNames()).toEqual(['Alumno p2', 'Alumno p3', 'Alumno p4', 'Alumno p5', 'Alumno p6', 'Lucía']);
   });
 });
+
+describe('lobby del alumno con tablas', () => {
+  function inLobby(extra: Partial<Extract<ServerMessage, { type: 'room' }>>) {
+    const ctx = classSetup({ link: 'K7QF' });
+    act(() => ctx.net.socket.open());
+    ctx.server(
+      { type: 'joined', code: 'K7QF', playerId: ME, token: 't' },
+      classRoomMessage([teacherPlayer(), student(ME, 'Lucía', 3), student('p2', 'Leo', 6)], extra),
+    );
+    return ctx;
+  }
+
+  it('ve "Hoy: tablas del 7 y del 8" en lugar del selector de nivel (El alumno sabe qué se practica)', () => {
+    inLobby({ tables: { tables: [7, 8], divisions: false } });
+    expect(screen.getByTestId('today-tables')).toHaveTextContent('Hoy: tablas del 7 y del 8');
+    expect(screen.queryByRole('group', { name: 'Tu nivel' })).not.toBeInTheDocument();
+    expect(screen.queryByText('N6')).not.toBeInTheDocument();
+  });
+
+  it('sin tablas el selector de nivel sigue igual', () => {
+    inLobby({ tables: null });
+    expect(screen.getByRole('group', { name: 'Tu nivel' })).toBeInTheDocument();
+    expect(screen.queryByTestId('today-tables')).not.toBeInTheDocument();
+  });
+});

@@ -101,3 +101,15 @@ describe('Room: lobby', () => {
     expect(host.conn.all('ping').length).toBe(3);
   });
 });
+
+describe('Room: tablas en una sala familiar', () => {
+  it('no envía tablas y rechaza setTables, también del anfitrión', () => {
+    const h = harness();
+    const { host } = roomWithHost(h);
+    expect(host.conn.last('room')!).not.toHaveProperty('tables');
+    host.send({ type: 'setTables', tables: { tables: [7], divisions: false } });
+    expect(host.conn.last('error')?.code).toBe('not-host');
+    host.send({ type: 'start' });
+    expect(host.conn.last('raceStart')!.tables).toBeUndefined();
+  });
+});

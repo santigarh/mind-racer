@@ -49,11 +49,19 @@ describe('filas de la clasificación', () => {
   });
 
   it('muestra el nivel elegido y el máximo alcanzado (Subió de nivel)', () => {
-    expect(row(result({ chosenLevel: 3, maxLevel: 5 }))).toMatchObject({ Nivel: '3', 'Nivel máximo': '5' });
+    expect(row(result({ chosenLevel: 3, maxLevel: 5 }))).toMatchObject({ Nivel: '3', 'Nivel máximo': '5', Tablas: '—' });
   });
 
   it('ordena por puesto', () => {
     const rows = standingsRows([result({ id: 'b', position: 2 }), result({ id: 'a', position: 1 })], {}, 1000);
     expect(rows.map((r) => r.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('carrera de tablas', () => {
+  it('dice qué se practicó y deja los niveles en "—" (Carrera de tablas)', () => {
+    const [first] = standingsRows([result({ chosenLevel: 4, maxLevel: 4 })], {}, 1000, { tables: [7, 8], divisions: true });
+    const cells = Object.fromEntries(STANDINGS_HEADERS.map((h, i) => [h, first!.cells[i]]));
+    expect(cells).toMatchObject({ Nivel: '—', 'Nivel máximo': '—', Tablas: '7, 8 + divisiones' });
   });
 });

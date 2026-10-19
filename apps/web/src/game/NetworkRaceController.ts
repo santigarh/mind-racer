@@ -7,6 +7,7 @@ import {
   type RaceSnapshot,
   type RunnerResult,
   type RunnerState,
+  type TablesSelection,
 } from '@mind-racer/engine';
 import type { Car, ClientMessage, NetRunnerResult, NetRunnerState, Presence, RaceRunner, ServerMessage } from '@mind-racer/protocol';
 import type { ConnectionStatus } from '../net/NetClient';
@@ -59,6 +60,8 @@ export class NetworkRaceController implements RaceViewSource {
   readonly raceNumber: number | null;
   /** Unix ms when the countdown began; null when an older server does not send it. */
   readonly startedAt: number | null;
+  /** Set when the teacher chose tables for this race. */
+  readonly tables: TablesSelection | null;
   private readonly channel: RaceChannel;
   private readonly runners: readonly RaceRunner[];
   private readonly distance: number;
@@ -87,6 +90,7 @@ export class NetworkRaceController implements RaceViewSource {
     this.seed = options.raceStart.seed;
     this.raceNumber = options.raceStart.raceNumber ?? null;
     this.startedAt = options.raceStart.startedAt ?? null;
+    this.tables = options.raceStart.tables ?? null;
     this.runners = options.raceStart.runners;
     this.distance = options.raceStart.distance;
     this.playerId = options.playerId;

@@ -147,3 +147,41 @@ describe('App', () => {
     expect(screen.getByTestId('answer-feedback')).toHaveTextContent('Correcto');
   });
 });
+
+describe('App: práctica de tablas', () => {
+  const solveTimes = () => {
+    const [a, b] = screen.getByTestId('challenge-prompt').textContent!.split(' × ').map(Number);
+    return String(a! * b!);
+  };
+
+  it('un principiante corre la tabla del 7, gana sin que cuente y repite con las mismas tablas', async () => {
+    const saved = withProfile();
+    const { advance, current } = setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Tablas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tabla del 7' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Correr tablas' }));
+    expect(screen.getByRole('heading', { name: 'Tabla del 7' })).toBeInTheDocument();
+    advance(3000);
+    expect(screen.getByTestId('challenge-prompt')).toHaveTextContent(/^(7 × \d+|\d+ × 7)$/);
+    // The fixed level behind a tables race never shows (task 5.5).
+    expect(screen.queryByText(/nivel 4/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('hud-level')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Desafío' })).getByText('Tablas')).toBeInTheDocument();
+
+    for (let i = 0; i < 6 && screen.queryByLabelText('Tu respuesta'); i++) {
+      fireEvent.change(screen.getByLabelText('Tu respuesta'), { target: { value: solveTimes() } });
+      advance(32);
+    }
+    advance(62_000);
+    expect(await screen.findByRole('heading', { name: 'Ganaste la carrera' }, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText('Práctica de tablas: no cuenta para el progreso')).toBeInTheDocument();
+    expect(screen.queryByText(/nivel 4/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Nivel máximo')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Desbloqueaste/)).not.toBeInTheDocument();
+    expect(localStorage.getItem(PROFILE_KEY)).toBe(saved);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Correr de nuevo' }));
+    expect(current().tables).toEqual({ tables: [7], divisions: false });
+    expect(screen.getByRole('heading', { name: 'Tabla del 7' })).toBeInTheDocument();
+  });
+});

@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { ArrowCounterClockwise, DownloadSimple, FlagCheckered, Play, UserMinus, WifiSlash, X } from '@phosphor-icons/react';
-import type { RunnerResult } from '@mind-racer/engine';
+import type { RunnerResult, TablesSelection } from '@mind-racer/engine';
 import type { Presence, RoomPlayer } from '@mind-racer/protocol';
 import type { NetworkRaceController } from '../game/NetworkRaceController';
 import { useRaceController } from '../game/useRaceController';
@@ -10,7 +10,8 @@ import { RoomQr } from '../multiplayer/RoomQr';
 import { roomLink } from '../multiplayer/roomLink';
 import type { RoomMessage } from '../net/MultiplayerSession';
 import { Button } from '../ui/Button';
-import { formatTime, ordinal } from '../ui/format';
+import { formatTables, formatTime, ordinal } from '../ui/format';
+import { EMPTY_TABLES, TablesPicker, toSelection, type TablesDraft } from '../tables/TablesPicker';
 import { csvFileName, downloadCsv, toCsv } from './csv';
 import { STANDINGS_HEADERS, standingsRows } from './standings';
 import styles from './TeacherBoard.module.css';
@@ -68,6 +69,49 @@ function BoardHeader({ room, onClose, title }: Common & { title: string }) {
   );
 }
 
+/**
+ * "Qué practican": each student's level, or tables for the whole class (spec classroom-mode).
+ * The server's `room.tables` decides what is chosen; the draft only holds tables while none is picked.
+ */
+function PracticeChoice({ tables, onChange }: { tables: TablesSelection | null; onChange: (t: TablesSelection | null) => void }) {
+  const [tablesMode, setTablesMode] = useState(tables !== null);
+  const [draft, setDraft] = useState<TablesDraft>(tables ?? EMPTY_TABLES);
+  const showTables = tablesMode || tables !== null;
+  const value = tables ?? draft;
+  return (
+    <section className={styles.practice} aria-labelledby="practice-title">
+      <h2 id="practice-title" className={styles.sectionTitle}>
+        Qué practican <span className={styles.muted}>{tables ? `Tablas: ${formatTables(tables)}` : showTables ? 'Elige las tablas' : 'Cada uno su nivel'}</span>
+      </h2>
+      <div className={styles.practiceModes} role="group" aria-label="Qué practican">
+        <Button
+          variant={showTables ? 'ghost' : 'secondary'}
+          aria-pressed={!showTables}
+          onClick={() => {
+            setTablesMode(false);
+            if (tables !== null) onChange(null);
+          }}
+        >
+          Cada uno su nivel
+        </Button>
+        <Button variant={showTables ? 'secondary' : 'ghost'} aria-pressed={showTables} onClick={() => setTablesMode(true)}>
+          Tablas
+        </Button>
+      </div>
+      {showTables && (
+        <TablesPicker
+          size="large"
+          value={value}
+          onChange={(next) => {
+            setDraft(next);
+            onChange(toSelection(next));
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
 const ready = (p: RoomPlayer) => p.role !== 'teacher' && p.connected && (p.status === 'lobby' || p.status === 'results');
 
 /** Lobby on the projector: big code and QR, the students, and the start button (design D6). */
@@ -76,8 +120,15 @@ export function BoardLobby({
   onClose,
   onStart,
   onKick,
-}: Common & { onStart: () => void; onKick: (playerId: string) => void }) {
+  onSetTables,
+}: Common & {
+  onStart: () => void;
+  onKick: (playerId: string) => void;
+  /** Absent, or an older server that does not send `room.tables`: no tables choice. */
+  onSetTables?: (tables: TablesSelection | null) => void;
+}) {
   const students = room.players.filter((p) => p.role !== 'teacher');
+  const tables = room.tables ?? null;
   const canStart = students.some(ready) && room.phase === 'lobby';
   return (
     <main id="main" className={styles.page}>
@@ -103,10 +154,10 @@ export function BoardLobby({
           ) : (
             <ul className={styles.studentList}>
               {students.map((s) => (
-                <li key={s.id} className={styles.student} aria-label={`${s.name}, nivel ${s.level}`}>
+                <li key={s.id} className={styles.student} aria-label={tables ? s.name : `${s.name}, nivel ${s.level}`}>
                   {s.car && <CarIcon car={s.car} size={20} />}
                   <span className={styles.studentName}>{s.name}</span>
-                  <span className={styles.level}>N{s.level}</span>
+                  {!tables && <span className={styles.level}>N{s.level}</span>}
                   {!s.connected && <WifiSlash size={16} className={styles.offline} aria-label="Desconectado" />}
                   <ConfirmButton
                     label={`Quitar a ${s.name}`}
@@ -118,6 +169,7 @@ export function BoardLobby({
               ))}
             </ul>
           )}
+          {onSetTables && room.tables !== undefined && <PracticeChoice tables={tables} onChange={onSetTables} />}
           <Button size="large" className={styles.start} onClick={onStart} disabled={!canStart}>
             <Play size={20} weight="fill" aria-hidden />
             Iniciar carrera
@@ -164,7 +216,7 @@ export function BoardRace({ room, onClose, race }: Common & { race: NetworkRaceC
             >
               <span className={styles.pos}>{ordinal(r.position)}</span>
               <span className={styles.rowName}>{r.name}</span>
-              <span className={styles.level}>N{r.chosenLevel}</span>
+              {!race.tables && <span className={styles.level}>N{r.chosenLevel}</span>}
               <span className={styles.bar}>
                 <span className={styles.fill} />
                 {car && <CarIcon car={car} size={20} className={styles.barCar} painted={false} />}
@@ -187,6 +239,7 @@ export function BoardResults({
   distance,
   raceNumber,
   startedAt,
+  tables = null,
   onNext,
 }: Common & {
   results: readonly RunnerResult[];
@@ -196,11 +249,13 @@ export function BoardResults({
   raceNumber: number;
   /** Unix ms when the race started; null with an older server (the download date is used then). */
   startedAt: number | null;
+  /** Set when this was a tables race. */
+  tables?: TablesSelection | null;
   onNext: () => void;
 }) {
-  const rows = standingsRows(results, presence, distance);
+  const rows = standingsRows(results, presence, distance, tables);
   const download = () =>
-    downloadCsv(toCsv(results, presence, distance), csvFileName(room.code, new Date(startedAt ?? Date.now()), raceNumber));
+    downloadCsv(toCsv(results, presence, distance, tables), csvFileName(room.code, new Date(startedAt ?? Date.now()), raceNumber));
   return (
     <main id="main" className={styles.page}>
       <BoardHeader room={room} onClose={onClose} title="Resultados" />

@@ -232,3 +232,43 @@ describe('tamaño de los mensajes del servidor', () => {
     expect(parseServerMessage(raw)).toMatchObject({ ok: false });
   });
 });
+
+describe('práctica de tablas', () => {
+  const room = { type: 'room', code: 'K7QF', mode: 'class', phase: 'lobby', hostId: 't', players: [] };
+  const raceStart = { type: 'raceStart', seed: 1, distance: 1000, runners: [] };
+  const serverOk = (message: unknown) => parseServerMessage(JSON.stringify(message)).ok;
+
+  it('setTables ordena las tablas y quita duplicados', () => {
+    expect(ok(JSON.stringify({ type: 'setTables', tables: { tables: [8, 7, 8], divisions: true } }))).toEqual({
+      type: 'setTables',
+      tables: { tables: [7, 8], divisions: true },
+    });
+    expect(ok(JSON.stringify({ type: 'setTables', tables: null }))).toEqual({ type: 'setTables', tables: null });
+  });
+
+  it('rechaza tablas fuera del 2 al 10, una lista vacía o campos extra', () => {
+    for (const tables of [
+      { tables: [1], divisions: false },
+      { tables: [11], divisions: false },
+      { tables: [], divisions: false },
+      { tables: [7], divisions: false, extra: 1 },
+      { tables: [7] },
+    ]) {
+      expect(rejected(JSON.stringify({ type: 'setTables', tables })), JSON.stringify(tables)).toBe(true);
+    }
+  });
+
+  it('room y raceStart validan con y sin tablas', () => {
+    expect(serverOk(room)).toBe(true);
+    expect(serverOk({ ...room, tables: null })).toBe(true);
+    expect(serverOk({ ...room, tables: { tables: [7], divisions: false } })).toBe(true);
+    expect(serverOk(raceStart)).toBe(true);
+    expect(serverOk({ ...raceStart, tables: { tables: [9, 3], divisions: true } })).toBe(true);
+    expect(serverOk({ ...raceStart, tables: { tables: [12], divisions: true } })).toBe(false);
+    const parsed = parseServerMessage(JSON.stringify({ ...raceStart, tables: { tables: [9, 3], divisions: true } }));
+    expect(parsed.ok && parsed.message.type === 'raceStart' && parsed.message.tables).toEqual({
+      tables: [3, 9],
+      divisions: true,
+    });
+  });
+});

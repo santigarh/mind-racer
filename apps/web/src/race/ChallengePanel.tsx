@@ -13,10 +13,12 @@ interface ChallengePanelProps {
   lastAnswer: AnswerOutcome | null;
   disabled: boolean;
   showKeypad: boolean;
+  /** Replaces "Nivel N" above the prompt (a tables race shows "Tablas"). */
+  label?: string;
   onSubmit: (value: string) => void;
 }
 
-export function ChallengePanel({ challenge, lastAnswer, disabled, showKeypad, onSubmit }: ChallengePanelProps) {
+export function ChallengePanel({ challenge, lastAnswer, disabled, showKeypad, label, onSubmit }: ChallengePanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const entry = useAnswerEntry(disabled ? null : challenge, onSubmit);
 
@@ -29,7 +31,7 @@ export function ChallengePanel({ challenge, lastAnswer, disabled, showKeypad, on
   return (
     <section className={styles.panel} aria-label="Desafío">
       <div className={styles.promptRow}>
-        <span className={styles.level}>Nivel {challenge?.level ?? '·'}</span>
+        <span className={styles.level}>{label ?? `Nivel ${challenge?.level ?? '·'}`}</span>
         <p
           key={challenge?.seq}
           className={styles.prompt}

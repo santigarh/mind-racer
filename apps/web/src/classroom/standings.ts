@@ -1,6 +1,6 @@
-import type { RunnerResult } from '@mind-racer/engine';
+import type { RunnerResult, TablesSelection } from '@mind-racer/engine';
 import type { Presence } from '@mind-racer/protocol';
-import { formatDecimal, formatPercent, formatTime } from '../ui/format';
+import { formatDecimal, formatPercent, formatTables, formatTime } from '../ui/format';
 
 /** Columns of the class standings, on the board and in the CSV (spec classroom-mode, design D4). */
 export const STANDINGS_HEADERS = [
@@ -8,6 +8,7 @@ export const STANDINGS_HEADERS = [
   'Nombre',
   'Nivel',
   'Nivel máximo',
+  'Tablas',
   'Tiempo',
   'Avance',
   'Estado',
@@ -29,11 +30,15 @@ function status(r: RunnerResult, presence: Presence | undefined): string {
   return 'Sin llegar';
 }
 
-/** One row per student, in finishing order, with every cell already in Spanish. */
+/**
+ * One row per student, in finishing order, with every cell already in Spanish. In a tables race the
+ * levels are "—" (they are a fixed pace, not a choice) and "Tablas" says what was practiced.
+ */
 export function standingsRows(
   results: readonly RunnerResult[],
   presence: Readonly<Record<string, Presence>>,
   distance: number,
+  tables: TablesSelection | null = null,
 ): StandingsRow[] {
   return [...results]
     .sort((a, b) => a.position - b.position)
@@ -42,8 +47,9 @@ export function standingsRows(
       cells: [
         String(r.position),
         r.name,
-        String(r.chosenLevel),
-        String(r.maxLevel),
+        tables ? '—' : String(r.chosenLevel),
+        tables ? '—' : String(r.maxLevel),
+        tables ? formatTables(tables) : '—',
         r.finished && r.finishTimeMs !== null ? formatTime(r.finishTimeMs) : '—',
         formatPercent(r.finished || distance <= 0 ? 1 : Math.min(1, r.distance / distance)),
         status(r, presence[r.id]),

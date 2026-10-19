@@ -1,4 +1,4 @@
-import type { BotProfileId, RaceSnapshot } from '@mind-racer/engine';
+import type { BotProfileId, RaceSnapshot, TablesSelection } from '@mind-racer/engine';
 import type { Car, Presence } from '@mind-racer/protocol';
 
 export interface RaceViewState {
@@ -26,6 +26,8 @@ export interface RaceViewSource {
   readonly mode: 'local' | 'network';
   readonly seed: number;
   readonly playerId: string;
+  /** Set for a multiplication tables race: the screen shows the tables, never the fixed level behind them. */
+  readonly tables: TablesSelection | null;
   /** Delay before showing results once the race is finished. */
   readonly resultsDelayMs: number;
   subscribe(listener: () => void): () => void;

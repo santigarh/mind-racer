@@ -339,3 +339,45 @@ describe('servidor despertando', () => {
     expect(screen.getByText('Despertando el servidor, puede tardar hasta un minuto')).toBeInTheDocument();
   });
 });
+
+describe('Carrera de tablas en clase', () => {
+  it('el alumno gana sin que cuente para su progreso y ve el aviso (Carrera de tablas en clase)', async () => {
+    const ctx = setup(2);
+    await inLobby(ctx);
+    const tables = { tables: [7], divisions: false };
+    const students = (status: RoomPlayer['status']) =>
+      room([player('p1', 'Profe', 5, { role: 'teacher' }), player('p2', 'Lucía', 2, { status }), player('p3', 'Leo', 3, { status })], {
+        mode: 'class',
+        tables,
+      });
+    ctx.server(
+      {
+        type: 'raceStart',
+        seed: 77,
+        distance: 1000,
+        tables,
+        runners: [
+          { id: 'p2', name: 'Lucía', kind: 'human', chosenLevel: 4 },
+          { id: 'p3', name: 'Leo', kind: 'human', chosenLevel: 4 },
+        ],
+      },
+      { ...students('racing'), phase: 'racing' },
+    );
+    expect(screen.getByRole('heading', { name: 'Tabla del 7' })).toBeInTheDocument();
+    expect(screen.queryByText('N4')).not.toBeInTheDocument();
+
+    const result = (id: string, name: string, position: number): NetRunnerResult => ({
+      id, name, kind: 'human', position, chosenLevel: 4, finished: true, finishTimeMs: 50_000 + position, distance: 1000,
+      correct: 20, wrong: 1, accuracy: 0.95, correctPerMinute: 24, maxLevel: 4, presence: 'connected',
+    });
+    ctx.server({ type: 'results', results: [result('p2', 'Lucía', 1), result('p3', 'Leo', 2)] }, students('results'));
+    ctx.tick(16);
+    expect(await screen.findByRole('heading', { name: 'Ganaste la carrera' })).toBeInTheDocument();
+    expect(screen.getByText('Práctica de tablas: no cuenta para el progreso')).toBeInTheDocument();
+    expect(screen.queryByText(/Desbloqueaste/)).not.toBeInTheDocument();
+    expect(within(screen.getByRole('table')).queryByText('N4')).not.toBeInTheDocument();
+    const profile = JSON.parse(localStorage.getItem(PROFILE_KEY)!);
+    expect(profile.unlockedLevel).toBe(2);
+    expect(profile.stats).toEqual({});
+  });
+});

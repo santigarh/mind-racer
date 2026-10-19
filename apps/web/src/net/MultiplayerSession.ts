@@ -1,3 +1,4 @@
+import type { TablesSelection } from '@mind-racer/engine';
 import type { Car, RoomMode, ServerMessage } from '@mind-racer/protocol';
 import { NetworkRaceController } from '../game/NetworkRaceController';
 import { NetClient, serverUrl, type ConnectionStatus } from './NetClient';
@@ -105,6 +106,11 @@ export class MultiplayerSession {
 
   setLevel(level: number): void {
     this.client.send({ type: 'setLevel', level });
+  }
+
+  /** Class rooms, teacher only: what the next races practice; null means each student's own level. */
+  setTables(tables: TablesSelection | null): void {
+    this.client.send({ type: 'setTables', tables });
   }
 
   start(): void {

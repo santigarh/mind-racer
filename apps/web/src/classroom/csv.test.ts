@@ -28,9 +28,9 @@ describe('CSV de la clasificación', () => {
     expect(csv.startsWith('﻿')).toBe(true);
     const [header, row] = csv.slice(1).trimEnd().split('\r\n');
     expect(header).toBe(
-      'Puesto;Nombre;Nivel;Nivel máximo;Tiempo;Avance;Estado;Aciertos;Errores;Precisión;Correctas por minuto',
+      'Puesto;Nombre;Nivel;Nivel máximo;Tablas;Tiempo;Avance;Estado;Aciertos;Errores;Precisión;Correctas por minuto',
     );
-    expect(row).toBe('1;Alumno 1;3;4;0:42,3;100 %;Llegó;18;2;90 %;25,5');
+    expect(row).toBe('1;Alumno 1;3;4;—;0:42,3;100 %;Llegó;18;2;90 %;25,5');
   });
 
   it('marca "Sin llegar", ordena por puesto y protege nombres con ; o comillas', () => {
@@ -41,7 +41,7 @@ describe('CSV de la clasificación', () => {
     );
     const rows = dataRows(csv);
     expect(rows[0]).toMatch(/^1;Leo;/);
-    expect(rows[1]).toBe('2;"Ana; la ""rápida""";3;4;—;40 %;Sin llegar;18;2;90 %;25,5');
+    expect(rows[1]).toBe('2;"Ana; la ""rápida""";3;4;—;—;40 %;Sin llegar;18;2;90 %;25,5');
   });
 
   it('el estado viene de la presencia de cada alumno', () => {
@@ -83,5 +83,14 @@ describe('CSV de la clasificación', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:csv');
     expect(document.querySelector('a[download]')).toBeNull();
     click.mockRestore();
+  });
+});
+
+describe('CSV de una carrera de tablas', () => {
+  it('mismos encabezados que una carrera por niveles (Mismas columnas en todas las carreras)', () => {
+    const header = (csv: string) => csv.slice(1).split('\r\n')[0];
+    const tablesCsv = toCsv([result(1)], {}, 1000, { tables: [7, 8], divisions: true });
+    expect(header(tablesCsv)).toBe(header(toCsv([result(1)])));
+    expect(dataRows(tablesCsv)[0]).toBe('1;Alumno 1;—;—;7, 8 + divisiones;0:42,3;100 %;Llegó;18;2;90 %;25,5');
   });
 });

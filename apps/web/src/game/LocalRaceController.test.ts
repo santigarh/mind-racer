@@ -151,3 +151,19 @@ describe('LocalRaceController', () => {
     expect(result.current.resumeRemainingMs).toBe(RESUME_COUNTDOWN_MS);
   });
 });
+
+describe('LocalRaceController: práctica de tablas', () => {
+  it('el primer desafío es de la tabla elegida y el controlador la expone', () => {
+    let wall = 0;
+    const tables = { tables: [7], divisions: false };
+    const controller = new LocalRaceController({ seed: 3, level: 9, playerName: 'Ana', tables, now: () => wall, autoLoop: false });
+    expect(controller.tables).toEqual(tables);
+    expect(controller.level).toBe(4);
+    controller.start();
+    for (let t = 0; t < 3100; t += 16) {
+      wall += 16;
+      controller.tick();
+    }
+    expect(player(controller).challenge!.prompt).toMatch(/^(7 × \d+|\d+ × 7)$/);
+  });
+});

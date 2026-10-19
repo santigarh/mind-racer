@@ -1,4 +1,4 @@
-import type { RunnerResult } from '@mind-racer/engine';
+import type { RunnerResult, TablesSelection } from '@mind-racer/engine';
 import type { Presence } from '@mind-racer/protocol';
 import { STANDINGS_HEADERS, standingsRows } from './standings';
 
@@ -22,8 +22,9 @@ export function toCsv(
   results: readonly RunnerResult[],
   presence: Readonly<Record<string, Presence>> = {},
   distance = 0,
+  tables: TablesSelection | null = null,
 ): string {
-  const rows = standingsRows(results, presence, distance).map((r) => r.cells);
+  const rows = standingsRows(results, presence, distance, tables).map((r) => r.cells);
   return BOM + [[...STANDINGS_HEADERS], ...rows].map((row) => row.map(cell).join(SEPARATOR)).join('\r\n') + '\r\n';
 }
 

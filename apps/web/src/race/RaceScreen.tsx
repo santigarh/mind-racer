@@ -5,7 +5,7 @@ import type { RaceViewSource } from '../game/RaceViewSource';
 import { useRaceController } from '../game/useRaceController';
 import { Button } from '../ui/Button';
 import { SoundToggle } from '../ui/SoundToggle';
-import { formatTime, ordinal } from '../ui/format';
+import { formatTime, ordinal, tablesTitle } from '../ui/format';
 import { ChallengePanel } from './ChallengePanel';
 import { Hud } from './Hud';
 import { Overlay } from './Overlay';
@@ -44,6 +44,8 @@ export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, f
   const player = snapshot.runners.find((r) => r.id === controller.playerId)!;
   const finished = snapshot.phase === 'finished';
   const online = controller.mode === 'network';
+  // A tables race runs on a fixed level behind the scenes: show the tables, never that level.
+  const tables = controller.tables;
   // Class races only send you and the leaders; on phones show the first 3 so the race still fits.
   const visible = state.visibleRunnerIds;
   const trackRunners = visible
@@ -104,7 +106,7 @@ export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, f
   return (
     <main id="main" className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>{title ?? `Carrera · nivel ${snapshot.level}`}</h1>
+        <h1 className={styles.title}>{title ?? (tables ? tablesTitle(tables) : `Carrera · nivel ${snapshot.level}`)}</h1>
         <div className={styles.headerActions}>
           <SoundToggle />
           <Button variant="ghost" size="small" onClick={openExit} disabled={finished}>
@@ -121,7 +123,7 @@ export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, f
         </p>
       )}
 
-      <Hud player={player} runnerCount={snapshot.runners.length} elapsedMs={snapshot.elapsedMs} />
+      <Hud player={player} runnerCount={snapshot.runners.length} elapsedMs={snapshot.elapsedMs} showLevel={!tables} />
 
       <div className={styles.arena}>
         <Track
@@ -130,7 +132,7 @@ export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, f
           playerId={controller.playerId}
           botProfiles={state.botProfiles}
           cars={state.cars}
-          showLevels={online}
+          showLevels={online && !tables}
           presence={state.presence}
         />
         {overlay}
@@ -163,6 +165,7 @@ export function RaceScreen({ controller, onFinish, onAbandon, title, exitNote, f
           lastAnswer={player.lastAnswer}
           disabled={!canAnswer}
           showKeypad={coarse}
+          {...(tables ? { label: 'Tablas' } : {})}
           onSubmit={submit}
         />
       )}

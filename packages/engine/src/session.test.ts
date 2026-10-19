@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_RACE_CONFIG } from './config';
 import { hashSeed } from './rng';
+import { TABLES_LEVEL, createTablesSource } from './challenges/math/tables';
 import { LocalRaceSession, PLAYER_ID, RaceSession } from './session';
 
 const COUNTDOWN = DEFAULT_RACE_CONFIG.countdownMs;
@@ -155,5 +156,44 @@ describe('desafío diario: misma carrera para todos', () => {
     const today = first(hashSeed('daily', '2026-10-11', 3), 3);
     expect(first(hashSeed('daily', '2026-10-12', 3), 3)).not.toBe(today);
     expect(first(hashSeed('daily', '2026-10-11', 4), 4)).not.toBe(today);
+  });
+});
+
+describe('carrera de tablas', () => {
+  const tablesSession = () =>
+    new LocalRaceSession({
+      seed: 11,
+      level: TABLES_LEVEL,
+      playerName: 'Ana',
+      source: createTablesSource({ tables: [7], divisions: false }),
+      config: { adaptiveDifficulty: false },
+    });
+  const isTableOf7 = (prompt: string) => /^(7 × \d+|\d+ × 7)$/.test(prompt);
+
+  it('una racha rápida no saca de la tabla elegida (Racha rápida)', () => {
+    const session = tablesSession();
+    session.start(0);
+    let t = COUNTDOWN;
+    for (let i = 0; i < 6; i++) {
+      t += 500;
+      session.advanceTo(t);
+      const challenge = session.race.peekChallenge(PLAYER_ID)!;
+      expect(isTableOf7(challenge.prompt), challenge.prompt).toBe(true);
+      session.submit(challenge.answer, t);
+    }
+    session.advanceTo(t + 1);
+    const next = session.race.peekChallenge(PLAYER_ID)!;
+    expect(isTableOf7(next.prompt)).toBe(true);
+    const me = session.snapshot().runners.find((r) => r.id === PLAYER_ID)!;
+    expect(me.maxLevel).toBe(TABLES_LEVEL);
+  });
+
+  it('los bots también corren con la tabla y la carrera termina', () => {
+    const session = tablesSession();
+    session.start(0);
+    const snapshot = session.finishNow();
+    expect(snapshot.phase).toBe('finished');
+    expect(snapshot.results!.filter((r) => r.kind === 'bot' && r.finished).length).toBeGreaterThan(0);
+    for (const r of snapshot.runners) expect(r.chosenLevel).toBe(TABLES_LEVEL);
   });
 });
