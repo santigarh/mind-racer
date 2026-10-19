@@ -1,0 +1,66 @@
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-200);
+}
+
+.tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: var(--s-75);
+}
+
+.table {
+  height: 56px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-2xl);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.table:hover {
+  background: var(--surface-2);
+  transform: translateY(-2px);
+}
+
+.table:active {
+  transform: scale(0.96);
+}
+
+.table[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.picker[data-size='large'] .tables {
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+}
+
+.picker[data-size='large'] .table {
+  height: 72px;
+  font-size: 28px;
+}
+
+.divisions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-75);
+  width: fit-content;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.divisions input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}

@@ -1,6 +1,9 @@
 import {
   LocalRaceSession,
   PLAYER_ID,
+  TABLES_LEVEL,
+  createTablesSource,
+  type TablesSelection,
   type AnswerOutcome,
   type BotProfileId,
   type RaceConfig,
@@ -19,6 +22,8 @@ export interface LocalRaceControllerOptions {
   playerName: string;
   /** The player's garage car; the classic look when omitted. */
   car?: Car;
+  /** A multiplication tables practice: overrides the level, without adaptation (design D3). */
+  tables?: TablesSelection;
   config?: Partial<RaceConfig>;
   /** Wall clock, injectable for tests. */
   now?: () => number;
@@ -38,6 +43,8 @@ export class LocalRaceController implements RaceViewSource {
   readonly resultsDelayMs = 1500;
   readonly seed: number;
   readonly level: number;
+  /** Set for a tables practice. */
+  readonly tables: TablesSelection | null;
   private readonly session: LocalRaceSession;
   private readonly now: () => number;
   private readonly autoLoop: boolean;
@@ -55,14 +62,19 @@ export class LocalRaceController implements RaceViewSource {
 
   constructor(options: LocalRaceControllerOptions) {
     this.seed = options.seed;
-    this.level = options.level;
+    this.tables = options.tables ?? null;
+    this.level = this.tables ? TABLES_LEVEL : options.level;
     this.now = options.now ?? (() => performance.now());
     this.autoLoop = options.autoLoop ?? true;
     this.session = new LocalRaceSession({
       seed: options.seed,
-      level: options.level,
+      level: this.level,
       playerName: options.playerName,
-      ...(options.config ? { config: options.config } : {}),
+      ...(this.tables
+        ? { source: createTablesSource(this.tables), config: { ...options.config, adaptiveDifficulty: false } }
+        : options.config
+          ? { config: options.config }
+          : {}),
     });
     this.botProfiles = Object.freeze(this.session.botProfiles());
     const cars: Record<string, Car> = options.car ? { [PLAYER_ID]: options.car } : {};

@@ -195,6 +195,18 @@ describe('modo clase en los mensajes', () => {
     expect(room({ mode: 'colegio' }).ok).toBe(false);
   });
 
+  it('el inicio de carrera trae su número y su hora, y sin ellos sigue valiendo', () => {
+    const start = (extra: object) =>
+      parseServerMessage(JSON.stringify({ type: 'raceStart', seed: 1, distance: 1000, runners: [], ...extra }));
+    expect(start({ raceNumber: 2, startedAt: 1_792_000_000_000 })).toMatchObject({
+      ok: true,
+      message: { raceNumber: 2, startedAt: 1_792_000_000_000 },
+    });
+    expect(start({}).ok).toBe(true);
+    expect(start({ raceNumber: 1.5 }).ok).toBe(false);
+    expect(start({ raceNumber: 0 }).ok).toBe(false);
+  });
+
   it('errores nuevos para quien fue quitado y para la sala cerrada', () => {
     for (const code of ['removed', 'room-closed']) {
       expect(parseServerMessage(JSON.stringify({ type: 'error', code, message: 'x' })).ok).toBe(true);
@@ -218,5 +230,45 @@ describe('tamaño de los mensajes del servidor', () => {
   it('sigue rechazando mensajes del servidor enormes', () => {
     const raw = JSON.stringify({ type: 'ping', id: 1, pad: 'x'.repeat(MAX_SERVER_MESSAGE_BYTES) });
     expect(parseServerMessage(raw)).toMatchObject({ ok: false });
+  });
+});
+
+describe('práctica de tablas', () => {
+  const room = { type: 'room', code: 'K7QF', mode: 'class', phase: 'lobby', hostId: 't', players: [] };
+  const raceStart = { type: 'raceStart', seed: 1, distance: 1000, runners: [] };
+  const serverOk = (message: unknown) => parseServerMessage(JSON.stringify(message)).ok;
+
+  it('setTables ordena las tablas y quita duplicados', () => {
+    expect(ok(JSON.stringify({ type: 'setTables', tables: { tables: [8, 7, 8], divisions: true } }))).toEqual({
+      type: 'setTables',
+      tables: { tables: [7, 8], divisions: true },
+    });
+    expect(ok(JSON.stringify({ type: 'setTables', tables: null }))).toEqual({ type: 'setTables', tables: null });
+  });
+
+  it('rechaza tablas fuera del 2 al 10, una lista vacía o campos extra', () => {
+    for (const tables of [
+      { tables: [1], divisions: false },
+      { tables: [11], divisions: false },
+      { tables: [], divisions: false },
+      { tables: [7], divisions: false, extra: 1 },
+      { tables: [7] },
+    ]) {
+      expect(rejected(JSON.stringify({ type: 'setTables', tables })), JSON.stringify(tables)).toBe(true);
+    }
+  });
+
+  it('room y raceStart validan con y sin tablas', () => {
+    expect(serverOk(room)).toBe(true);
+    expect(serverOk({ ...room, tables: null })).toBe(true);
+    expect(serverOk({ ...room, tables: { tables: [7], divisions: false } })).toBe(true);
+    expect(serverOk(raceStart)).toBe(true);
+    expect(serverOk({ ...raceStart, tables: { tables: [9, 3], divisions: true } })).toBe(true);
+    expect(serverOk({ ...raceStart, tables: { tables: [12], divisions: true } })).toBe(false);
+    const parsed = parseServerMessage(JSON.stringify({ ...raceStart, tables: { tables: [9, 3], divisions: true } }));
+    expect(parsed.ok && parsed.message.type === 'raceStart' && parsed.message.tables).toEqual({
+      tables: [3, 9],
+      divisions: true,
+    });
   });
 });

@@ -1,9 +1,12 @@
 import {
   DEFAULT_BOT_PROFILES,
   RaceSession,
+  TABLES_LEVEL,
+  createTablesSource,
   type PublicChallenge,
   type RaceConfig,
   type RaceSnapshot,
+  type TablesSelection,
 } from '@mind-racer/engine';
 import { DEFAULT_CAR } from '@mind-racer/protocol';
 import type {
@@ -31,6 +34,7 @@ export interface RoomOptions {
 }
 
 type PlayerStatus = 'lobby' | 'racing' | 'results' | 'waiting';
+type RaceStartMessage = Extract<ServerMessage, { type: 'raceStart' }>;
 
 interface Player {
   id: string;
@@ -55,12 +59,16 @@ interface Player {
 
 interface ActiveRace {
   session: RaceSession;
+  /** 1, 2, 3… since the room opened. */
+  number: number;
   /** Room clock time of race time 0. */
   epoch: number;
   runners: RaceRunner[];
   humanIds: readonly string[];
   /** People who abandoned or exited this race. */
   left: Set<string>;
+  /** Set when this is a tables race. */
+  tables: TablesSelection | null;
 }
 
 /**
@@ -77,6 +85,11 @@ export class Room {
   private readonly players = new Map<string, Player>();
   private hostId: string | null = null;
   private race: ActiveRace | null = null;
+  private raceCount = 0;
+  /** Class rooms: the last race's start and standings, kept for a teacher who reconnects (design D2). */
+  private lastRace: { start: RaceStartMessage; results: NetRunnerResult[] } | null = null;
+  /** Class rooms: what the next races practice, chosen by the teacher; null means each student's level (design D5). */
+  private tables: TablesSelection | null = null;
   private nextPlayer = 1;
   private nextPing = 1;
   private ticks = 0;
@@ -166,6 +179,9 @@ export class Room {
     } else if (this.race && player.role === 'teacher') {
       this.sendRaceStart(player);
       this.send(player, this.stateFor(player, this.race.session.snapshot()));
+    } else if (!this.race && player.role === 'teacher' && this.lastRace) {
+      this.send(player, this.lastRace.start);
+      this.send(player, { type: 'results', results: this.lastRace.results });
     }
     return player.id;
   }
@@ -202,6 +218,14 @@ export class Room {
           player.level = message.level;
           this.broadcastRoom();
         }
+        return;
+      case 'setTables':
+        if (!this.isClass || player.role !== 'teacher') {
+          return this.error(player, 'not-host', 'Solo la profesora puede elegir las tablas');
+        }
+        // Takes effect from the next race; the one running keeps its problems.
+        this.tables = message.tables;
+        this.broadcastRoom();
         return;
       case 'start':
         return this.start(player);
@@ -241,19 +265,34 @@ export class Room {
 
     const botLevel = Math.min(...racers.map((p) => p.level));
     const botCount = this.isClass ? 0 : Math.max(0, ROOM_LIMITS.capacity - racers.length);
-    const session = new RaceSession({
-      seed: Math.floor(this.options.random() * 2 ** 32),
-      level: botLevel,
-      humans: racers.map((p) => ({ id: p.id, name: p.name, level: p.level })),
-      bots: DEFAULT_BOT_PROFILES.slice(0, botCount).map((profile) => ({ profile, level: botLevel })),
-      ...(this.options.raceConfig ? { config: this.options.raceConfig } : {}),
-    });
+    const seed = Math.floor(this.options.random() * 2 ** 32);
+    // A tables race: everyone on the chosen tables, at a fixed pace, whatever level they picked (design D3).
+    const tables = this.isClass ? this.tables : null;
+    const session = tables
+      ? new RaceSession({
+          seed,
+          level: TABLES_LEVEL,
+          humans: racers.map((p) => ({ id: p.id, name: p.name })),
+          bots: [],
+          source: createTablesSource(tables),
+          config: { ...this.options.raceConfig, adaptiveDifficulty: false },
+        })
+      : new RaceSession({
+          seed,
+          level: botLevel,
+          humans: racers.map((p) => ({ id: p.id, name: p.name, level: p.level })),
+          bots: DEFAULT_BOT_PROFILES.slice(0, botCount).map((profile) => ({ profile, level: botLevel })),
+          ...(this.options.raceConfig ? { config: this.options.raceConfig } : {}),
+        });
     const profiles = session.botProfiles();
+    this.lastRace = null;
     this.race = {
       session,
+      number: ++this.raceCount,
       epoch: this.options.now(),
       humanIds: session.humanIds,
       left: new Set(),
+      tables,
       runners: session.snapshot().runners.map((r) => ({
         id: r.id,
         name: r.name,
@@ -297,6 +336,7 @@ export class Room {
     }
     this.players.clear();
     this.race = null;
+    this.lastRace = null;
     this.hostId = null;
     this.closed = true;
   }
@@ -404,6 +444,7 @@ export class Room {
       maxLevel: r.maxLevel,
       presence: this.presence(r.id),
     }));
+    if (this.isClass) this.lastRace = { start: this.raceStartMessage(race), results };
     for (const player of this.players.values()) {
       if (player.status === 'racing') {
         player.status = 'results';
@@ -446,13 +487,19 @@ export class Room {
   }
 
   private sendRaceStart(player: Player): void {
-    const race = this.race!;
-    this.send(player, {
+    this.send(player, this.raceStartMessage(this.race!));
+  }
+
+  private raceStartMessage(race: ActiveRace): RaceStartMessage {
+    return {
       type: 'raceStart',
       seed: race.session.race.seed,
       distance: race.session.race.config.distance,
       runners: race.runners,
-    });
+      raceNumber: race.number,
+      startedAt: race.epoch,
+      ...(race.tables ? { tables: race.tables } : {}),
+    };
   }
 
   private stateMessage(snapshot: RaceSnapshot): ServerMessage {
@@ -509,6 +556,7 @@ export class Room {
       mode: this.mode,
       phase: this.phase,
       hostId: this.hostId,
+      ...(this.isClass ? { tables: this.tables } : {}),
       players: [...this.players.values()].map((p) => ({
         id: p.id,
         name: p.name,

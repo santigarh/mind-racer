@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react';
-import { ArrowCounterClockwise, Fire, Garage, House, LockOpen, SignOut, Star, UsersThree } from '@phosphor-icons/react';
-import type { BotProfileId, RaceSnapshot } from '@mind-racer/engine';
+import { ArrowCounterClockwise, Fire, Garage, House, LockOpen, SignOut, Star, UsersThree, X } from '@phosphor-icons/react';
+import type { BotProfileId, RaceSnapshot, TablesSelection } from '@mind-racer/engine';
 import type { Car, Presence } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
-import { formatDecimal, formatPercent, formatTime, ordinal } from '../ui/format';
+import { formatDecimal, formatPercent, formatTime, ordinal, tablesTitle } from '../ui/format';
 import type { ProgressUpdate } from '../progress/profile';
 import { PRESENCE_TEXT, laneColor } from '../race/Track';
 import { ShareResult } from '../daily/ShareResult';
@@ -16,7 +16,10 @@ interface ResultsProps {
   botProfiles: Readonly<Record<string, BotProfileId>>;
   /** Garage cars by runner id, for the standings colors. */
   cars?: Readonly<Record<string, Car>>;
-  update: ProgressUpdate;
+  /** What the race changed in the profile; absent for a tables practice, which does not count. */
+  update?: ProgressUpdate;
+  /** A multiplication tables practice: shown instead of the level, and says it does not count. */
+  practice?: TablesSelection;
   /** Local: "Correr de nuevo". Online: "Volver a la sala". */
   onPlayAgain: () => void;
   /** Local: "Volver al menú". Online: "Salir de la sala". */
@@ -37,6 +40,7 @@ export function Results({
   botProfiles,
   cars = {},
   update,
+  practice,
   onPlayAgain,
   onMenu,
   online = false,
@@ -49,14 +53,20 @@ export function Results({
   const me = results.find((r) => r.id === playerId)!;
   const headline = me.position === 1 ? 'Ganaste la carrera' : `Terminaste ${ordinal(me.position)}`;
   const highlights: string[] = [];
-  if (update.records.time) highlights.push('Nuevo récord de tiempo');
-  if (update.records.correctPerMinute) highlights.push('Nuevo récord de correctas por minuto');
-  if (update.records.accuracy) highlights.push('Nuevo récord de precisión');
+  if (update?.records.time) highlights.push('Nuevo récord de tiempo');
+  if (update?.records.correctPerMinute) highlights.push('Nuevo récord de correctas por minuto');
+  if (update?.records.accuracy) highlights.push('Nuevo récord de precisión');
+  const unlockedLevel = update?.unlockedLevel ?? null;
+  const kicker = practice
+    ? tablesTitle(practice)
+    : daily
+      ? `Desafío diario · Nivel ${snapshot.level}`
+      : `Nivel ${snapshot.level}`;
 
   return (
     <main id="main" className={styles.page}>
       <section className={styles.hero} aria-labelledby="results-title">
-        <span className={styles.kicker}>{daily ? `Desafío diario · Nivel ${snapshot.level}` : `Nivel ${snapshot.level}`}</span>
+        <span className={styles.kicker}>{kicker}</span>
         <h1 id="results-title" className={styles.title}>
           {headline}
         </h1>
@@ -67,18 +77,24 @@ export function Results({
         </p>
       </section>
 
-      {(daily || update.unlockedLevel !== null || garageUnlocks.length > 0 || highlights.length > 0) && (
+      {(practice || daily || unlockedLevel !== null || garageUnlocks.length > 0 || highlights.length > 0) && (
         <ul className={styles.badges} aria-label="Logros">
+          {practice && (
+            <li className={styles.badge} data-kind="practice">
+              <X size={20} weight="bold" aria-hidden />
+              Práctica de tablas: no cuenta para el progreso
+            </li>
+          )}
           {daily && (
             <li className={styles.badge} data-kind="streak">
               <Fire size={20} weight="fill" aria-hidden />
               {streakText(daily.streak)}
             </li>
           )}
-          {update.unlockedLevel !== null && (
+          {unlockedLevel !== null && (
             <li className={styles.badge} data-kind="unlock">
               <LockOpen size={20} weight="bold" aria-hidden />
-              Desbloqueaste el nivel {update.unlockedLevel}
+              Desbloqueaste el nivel {unlockedLevel}
             </li>
           )}
           {garageUnlocks.map((name) => (
@@ -103,7 +119,7 @@ export function Results({
         <Stat label="Errores" value={String(me.wrong)} />
         <Stat label="Precisión" value={formatPercent(me.accuracy)} />
         <Stat label="Correctas por minuto" value={formatDecimal(me.correctPerMinute)} />
-        <Stat label="Nivel máximo" value={String(me.maxLevel)} />
+        {!practice && <Stat label="Nivel máximo" value={String(me.maxLevel)} />}
       </dl>
 
       <section className={styles.tableWrap} aria-labelledby="ranking-title">
@@ -115,7 +131,7 @@ export function Results({
             <tr>
               <th scope="col">Pos.</th>
               <th scope="col">Corredor</th>
-              {online && <th scope="col">Nivel</th>}
+              {online && !practice && <th scope="col">Nivel</th>}
               <th scope="col">Tiempo</th>
               <th scope="col" className={styles.optional}>
                 Aciertos
@@ -139,7 +155,7 @@ export function Results({
                     <span className={styles.away}> · {PRESENCE_TEXT[presence[r.id]!]}</span>
                   )}
                 </td>
-                {online && <td className={styles.num}>N{r.chosenLevel}</td>}
+                {online && !practice && <td className={styles.num}>N{r.chosenLevel}</td>}
                 <td className={styles.num}>
                   {r.finishTimeMs === null ? `${Math.round(r.distance)} m` : formatTime(r.finishTimeMs)}
                 </td>

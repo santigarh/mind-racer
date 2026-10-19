@@ -237,3 +237,38 @@
     filter: none;
   }
 }
+
+.modes {
+  display: inline-flex;
+  gap: var(--s-50);
+  margin-bottom: var(--s-200);
+  padding: var(--s-50);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--surface);
+}
+
+.mode {
+  padding: var(--s-75) var(--s-300);
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.mode[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tablesPanel {
+  padding: var(--s-300);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3xl);
+  background: var(--surface);
+  animation: rise 900ms var(--ease) 100ms both;
+}

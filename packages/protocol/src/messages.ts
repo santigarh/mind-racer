@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MAX_LEVEL, MIN_LEVEL } from '@mind-racer/engine';
+import { MAX_LEVEL, MIN_LEVEL, TABLES_MAX, TABLES_MIN, normalizeTables } from '@mind-racer/engine';
 import { MAX_MESSAGE_BYTES, MAX_SERVER_MESSAGE_BYTES, normalizeRoomCode } from './codes';
 import { carSchema, sentCarSchema } from './garage';
 
@@ -22,6 +22,17 @@ export const nameSchema = z
   }, `El nombre debe tener entre 1 y ${NAME_MAX_LENGTH} caracteres`);
 
 export const roomCodeSchema = z.string().max(16).transform(normalizeRoomCode);
+
+/** A multiplication tables practice (spec tables-practice); arrives sorted and without duplicates. */
+export const tablesSchema = z
+  .strictObject({
+    tables: z
+      .array(z.number().int().min(TABLES_MIN).max(TABLES_MAX))
+      .min(1)
+      .max(TABLES_MAX - TABLES_MIN + 1),
+    divisions: z.boolean(),
+  })
+  .transform((selection) => normalizeTables(selection)!);
 
 const runnerKindSchema = z.enum(['human', 'bot']);
 const botProfileSchema = z.enum(['tortuga', 'crucero', 'turbo']);
@@ -59,6 +70,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('join'), code: roomCodeSchema, name: nameSchema, level: levelSchema, car: sentCarSchema }),
   z.object({ type: z.literal('rejoin'), code: roomCodeSchema, token: z.string().min(1).max(64) }),
   z.object({ type: z.literal('setLevel'), level: levelSchema }),
+  /** Class rooms, teacher only: what the next races practice; null means each student's own level. */
+  z.object({ type: z.literal('setTables'), tables: tablesSchema.nullable() }),
   z.object({ type: z.literal('start') }),
   z.object({ type: z.literal('answer'), seq: z.number().int(), input: z.string().max(ANSWER_MAX_LENGTH) }),
   z.object({ type: z.literal('abandon') }),
@@ -169,12 +182,20 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     phase: z.enum(['lobby', 'racing']),
     hostId: z.string().nullable(),
     players: z.array(roomPlayerSchema),
+    /** Class rooms: the tables the next race practices, null for levels. Absent from older servers and family rooms. */
+    tables: tablesSchema.nullable().optional(),
   }),
   z.object({
     type: z.literal('raceStart'),
     seed: z.number().int(),
     distance: z.number(),
     runners: z.array(raceRunnerSchema),
+    /** 1, 2, 3… since the room opened. Optional so older servers still parse. */
+    raceNumber: z.number().int().positive().optional(),
+    /** Unix ms when the countdown began. Optional so older servers still parse. */
+    startedAt: z.number().optional(),
+    /** Present only in a tables race. */
+    tables: tablesSchema.optional(),
   }),
   z.object({
     type: z.literal('state'),

@@ -215,6 +215,10 @@
   margin: var(--s-300) 0;
 }
 
+.tableWrap {
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -263,4 +267,22 @@
     font-size: 14px;
     line-height: 20px;
   }
+}
+
+/* ---------- what the class practices ---------- */
+
+.practice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-200);
+  padding: var(--s-300);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3xl);
+  background: var(--surface);
+}
+
+.practiceModes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-75);
 }

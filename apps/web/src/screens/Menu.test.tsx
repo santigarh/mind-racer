@@ -66,3 +66,42 @@ describe('Menu', () => {
     expect(screen.getByText('21,3')).toBeInTheDocument();
   });
 });
+
+describe('Menu: práctica de tablas', () => {
+  const beginner = createProfile('Ana', 'beginner');
+
+  it('sin tablas elegidas no se puede correr (Ninguna tabla)', async () => {
+    render(<Menu profile={beginner} onStart={vi.fn()} onStartTables={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Tablas' }));
+    expect(screen.getByRole('button', { name: 'Correr tablas' })).toBeDisabled();
+  });
+
+  it('un principiante elige 8 y 7 y corre las tablas del 7 y del 8, sin divisiones', async () => {
+    const onStartTables = vi.fn();
+    render(<Menu profile={beginner} onStart={vi.fn()} onStartTables={onStartTables} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Tablas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tabla del 8' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tabla del 7' }));
+    expect(screen.getByRole('button', { name: 'Tabla del 7' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('switch', { name: 'Con divisiones' })).not.toBeChecked();
+    expect(screen.getByRole('heading', { name: 'Tablas del 7 y del 8' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Correr tablas' }));
+    expect(onStartTables).toHaveBeenCalledWith({ tables: [7, 8], divisions: false });
+  });
+
+  it('con divisiones, y vuelve a abrir en la última práctica', async () => {
+    const onStartTables = vi.fn();
+    render(
+      <Menu
+        profile={beginner}
+        onStart={vi.fn()}
+        onStartTables={onStartTables}
+        initialMode="tables"
+        initialTables={{ tables: [6], divisions: false }}
+      />,
+    );
+    await userEvent.click(screen.getByRole('switch', { name: 'Con divisiones' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Correr tablas' }));
+    expect(onStartTables).toHaveBeenCalledWith({ tables: [6], divisions: true });
+  });
+});

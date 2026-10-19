@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { NetRunnerResult, NetRunnerState, ServerMessage } from '@mind-racer/protocol';
 import { boardColumns } from './TeacherBoard';
@@ -120,8 +120,173 @@ describe('tablero de la profesora: carrera y resultados', () => {
   });
 });
 
+/** Captures what "Descargar CSV" saves: the file name and its text. */
+function captureDownloads() {
+  const files: { name: string; blob: Blob }[] = [];
+  let blob: Blob | null = null;
+  Object.assign(URL, {
+    createObjectURL: (b: Blob) => {
+      blob = b;
+      return 'blob:csv';
+    },
+    revokeObjectURL: () => {},
+  });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+    files.push({ name: this.download, blob: blob! });
+  });
+  return { files, restore: () => click.mockRestore() };
+}
+
+describe('tablero de la profesora: clasificación', () => {
+  const lucia: NetRunnerResult = {
+    id: 'p2', name: 'Lucía', kind: 'human', position: 1, chosenLevel: 3, finished: true, finishTimeMs: 42_300,
+    distance: 1000, correct: 18, wrong: 2, accuracy: 0.9, correctPerMinute: 25.5, maxLevel: 5, presence: 'connected',
+  };
+  const leo: NetRunnerResult = {
+    id: 'p3', name: '=1+1', kind: 'human', position: 2, chosenLevel: 2, finished: false, finishTimeMs: null,
+    distance: 500, correct: 0, wrong: 0, accuracy: 0, correctPerMinute: 0, maxLevel: 2, presence: 'left',
+  };
+  const startedAt = new Date(2026, 9, 17, 10, 30).getTime();
+
+  it('muestra nivel máximo, avance, estado y "sin respuestas", y descarga con el número y la fecha de la carrera', async () => {
+    const ctx = await teacherOpensClass();
+    ctx.server({
+      type: 'raceStart',
+      seed: 9,
+      distance: 1000,
+      raceNumber: 2,
+      startedAt,
+      runners: [lucia, leo].map((r) => ({ id: r.id, name: r.name, kind: 'human' as const, chosenLevel: r.chosenLevel })),
+    });
+    ctx.server({ type: 'results', results: [lucia, leo] });
+    const table = await screen.findByRole('table');
+    const headers = within(table).getAllByRole('columnheader').map((h) => h.textContent);
+    expect(headers).toEqual([
+      'Puesto', 'Nombre', 'Nivel', 'Nivel máximo', 'Tablas', 'Tiempo', 'Avance', 'Estado', 'Aciertos', 'Errores', 'Precisión', 'Correctas por minuto',
+    ]);
+    const [, first, second] = within(table).getAllByRole('row');
+    expect(within(first!).getAllByRole('cell').map((c) => c.textContent)).toEqual(
+      ['1', 'Lucía', '3', '5', '—', '0:42,3', '100 %', 'Llegó', '18', '2', '90 %', '25,5'],
+    );
+    expect(within(second!).getAllByRole('cell').map((c) => c.textContent)).toEqual(
+      ['2', '=1+1', '2', '2', '—', '—', '50 %', 'Se fue', '0', '0', 'sin respuestas', '0,0'],
+    );
+
+    const downloads = captureDownloads();
+    await userEvent.click(screen.getByRole('button', { name: 'Descargar CSV' }));
+    downloads.restore();
+    expect(downloads.files.map((f) => f.name)).toEqual(['mind-racer-K7QF-2026-10-17-2.csv']);
+    const csv = await downloads.files[0]!.blob.text();
+    expect(csv).toContain("2;'=1+1;2;2;—;—;50 %;Se fue;0;0;sin respuestas;0,0");
+  });
+
+  it('al recargar tras la segunda carrera, vuelve la clasificación y el CSV sigue siendo el n.º 2 (Recargar no reinicia la numeración, Recarga en la pantalla de resultados)', async () => {
+    const raceStartOf = (raceNumber: number): ServerMessage => ({
+      type: 'raceStart',
+      seed: 10 + raceNumber,
+      distance: 1000,
+      raceNumber,
+      startedAt,
+      runners: [{ id: 'p2', name: 'Lucía', kind: 'human', chosenLevel: 3 }],
+    });
+    const downloadName = async () => {
+      const downloads = captureDownloads();
+      await userEvent.click(await screen.findByRole('button', { name: 'Descargar CSV' }));
+      downloads.restore();
+      return downloads.files[0]!.name;
+    };
+
+    const ctx = await teacherOpensClass();
+    ctx.server(raceStartOf(1), { type: 'results', results: [lucia] });
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva carrera' }));
+    ctx.server(raceStartOf(2), { type: 'results', results: [lucia] });
+    expect(await downloadName()).toBe('mind-racer-K7QF-2026-10-17-2.csv');
+
+    // The tab reloads: a fresh app rejoins and the server sends back the last race and its standings.
+    cleanup();
+    const reloaded = classSetup({ name: 'Profe Ana' });
+    act(() => reloaded.net.socket.open());
+    expect(reloaded.sent()).toEqual([{ type: 'rejoin', code: 'K7QF', token: 't' }]);
+    reloaded.server(
+      { type: 'joined', code: 'K7QF', playerId: 'p1', token: 't' },
+      classRoomMessage([teacherPlayer(), student('p2', 'Lucía', 3, { status: 'results' })]),
+      raceStartOf(2),
+      { type: 'results', results: [lucia] },
+    );
+    expect(within(await screen.findByRole('table')).getByText('Lucía')).toBeInTheDocument();
+    expect(await downloadName()).toBe('mind-racer-K7QF-2026-10-17-2.csv');
+  });
+});
+
 describe('columnas del tablero', () => {
   it('reparte a la clase en columnas para que quepa en un proyector de 720 px', () => {
     expect([1, 12, 13, 26, 27, 40].map(boardColumns)).toEqual([1, 1, 2, 2, 3, 3]);
+  });
+});
+
+describe('tablero de la profesora: qué practican', () => {
+  const kids = () => [teacherPlayer(), student('p2', 'Lucía', 2), student('p3', 'Leo', 5)];
+
+  it('sin el campo tables (servidor anterior) no ofrece elegir tablas', async () => {
+    const ctx = await teacherOpensClass();
+    ctx.server(classRoomMessage(kids()));
+    expect(screen.queryByRole('group', { name: 'Qué practican' })).not.toBeInTheDocument();
+  });
+
+  it('elegir "Tablas" y una tabla envía setTables; "Cada uno su nivel" vuelve a null', async () => {
+    const ctx = await teacherOpensClass();
+    ctx.server(classRoomMessage(kids(), { tables: null }));
+    const practice = within(screen.getByRole('region', { name: /Qué practican/ }));
+    expect(practice.getByText('Cada uno su nivel', { selector: 'span' })).toBeInTheDocument();
+    await userEvent.click(practice.getByRole('button', { name: 'Tablas' }));
+    await userEvent.click(practice.getByRole('button', { name: 'Tabla del 9' }));
+    expect(ctx.sent().at(-1)).toEqual({ type: 'setTables', tables: { tables: [9], divisions: false } });
+    await userEvent.click(practice.getByRole('switch', { name: 'Con divisiones' }));
+    expect(ctx.sent().at(-1)).toEqual({ type: 'setTables', tables: { tables: [9], divisions: true } });
+
+    ctx.server(classRoomMessage(kids(), { tables: { tables: [9], divisions: true } }));
+    await userEvent.click(practice.getByRole('button', { name: 'Cada uno su nivel' }));
+    expect(ctx.sent().at(-1)).toEqual({ type: 'setTables', tables: null });
+  });
+
+  it('con tablas muestra "Tablas: 9 + divisiones" y la lista sin niveles (Lobby de una carrera de tablas)', async () => {
+    const ctx = await teacherOpensClass();
+    ctx.server(classRoomMessage(kids(), { tables: { tables: [9], divisions: true } }));
+    expect(screen.getByText('Tablas: 9 + divisiones')).toBeInTheDocument();
+    const list = within(screen.getByRole('region', { name: /Alumnos/ }));
+    expect(list.queryByText('N2')).not.toBeInTheDocument();
+    expect(list.queryByText('N5')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tabla del 9' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('tablero de la profesora: carrera de tablas', () => {
+  it('en carrera no muestra niveles y la clasificación dice qué tablas se corrieron (Carrera de tablas)', async () => {
+    const ctx = await teacherOpensClass();
+    const tables = { tables: [7, 8], divisions: true };
+    ctx.server(
+      {
+        type: 'raceStart',
+        seed: 3,
+        distance: 1000,
+        tables,
+        runners: [{ id: 'p2', name: 'Lucía', kind: 'human', chosenLevel: 4 }],
+      },
+      classRoomMessage([teacherPlayer(), student('p2', 'Lucía', 2, { status: 'racing' })], { phase: 'racing', tables }),
+    );
+    ctx.tick(16);
+    const board = within(screen.getByRole('list', { name: 'Avance de la clase' }));
+    expect(board.getByText('Lucía')).toBeInTheDocument();
+    expect(board.queryByText('N4')).not.toBeInTheDocument();
+
+    const lucia: NetRunnerResult = {
+      id: 'p2', name: 'Lucía', kind: 'human', position: 1, chosenLevel: 4, finished: true, finishTimeMs: 42_300,
+      distance: 1000, correct: 18, wrong: 2, accuracy: 0.9, correctPerMinute: 25.5, maxLevel: 4, presence: 'connected',
+    };
+    ctx.server({ type: 'results', results: [lucia] });
+    const [, first] = within(await screen.findByRole('table')).getAllByRole('row');
+    expect(within(first!).getAllByRole('cell').map((c) => c.textContent).slice(0, 5)).toEqual([
+      '1', 'Lucía', '—', '—', '7, 8 + divisiones',
+    ]);
   });
 });

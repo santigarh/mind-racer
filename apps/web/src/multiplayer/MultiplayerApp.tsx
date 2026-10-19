@@ -25,7 +25,8 @@ interface MultiplayerAppProps {
 interface Finished {
   seed: number;
   snapshot: RaceSnapshot;
-  update: ProgressUpdate;
+  /** Absent for a tables race, which does not count for progress. */
+  update?: ProgressUpdate;
   garageUnlocks: string[];
 }
 
@@ -82,6 +83,8 @@ export function MultiplayerApp({
       const mine = snapshot.results?.find((r) => r.id === race.playerId);
       if (!mine || processedSeed.current === race.seed) return;
       processedSeed.current = race.seed;
+      // A tables race is practice: it never touches the profile (spec multiplayer-race).
+      if (race.tables) return setFinished({ seed: race.seed, snapshot, garageUnlocks: [] });
       const update = applyRaceResult(profileRef.current, {
         level: mine.chosenLevel,
         position: mine.position,
@@ -103,7 +106,8 @@ export function MultiplayerApp({
     onExit();
   };
 
-  // Teacher board: the race whose results she already closed with "Nueva carrera", and how many races ran.
+  // Teacher board: the race whose results she already closed with "Nueva carrera", and how many races ran
+  // (only used when an older server does not number its races).
   const [boardSeed, setBoardSeed] = useState<number | null>(null);
   const seenSeeds = useRef(new Set<number>());
   if (race) seenSeeds.current.add(race.seed);
@@ -155,7 +159,11 @@ export function MultiplayerApp({
         <BoardResults
           room={view.room}
           results={raceResults}
-          raceNumber={raceCount}
+          presence={race.getState().presence}
+          distance={race.getState().snapshot.distance}
+          raceNumber={race.raceNumber ?? raceCount}
+          startedAt={race.startedAt}
+          tables={race.tables}
           onClose={closeRoom}
           onNext={() => setBoardSeed(race.seed)}
         />
@@ -167,6 +175,7 @@ export function MultiplayerApp({
         onClose={closeRoom}
         onStart={() => session.start()}
         onKick={(id) => session.kick(id)}
+        onSetTables={(tables) => session.setTables(tables)}
       />
     );
   }
@@ -193,6 +202,7 @@ export function MultiplayerApp({
         cars={race.getState().cars}
         presence={race.getState().presence}
         update={finished.update}
+        {...(race.tables ? { practice: race.tables } : {})}
         garageUnlocks={finished.garageUnlocks}
         topPlaces={view.room?.mode === 'class' ? CLASS_TOP_PLACES : undefined}
         onPlayAgain={() => session.backToRoom()}

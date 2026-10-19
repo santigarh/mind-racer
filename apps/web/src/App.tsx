@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { randomSeed, type RaceSnapshot } from '@mind-racer/engine';
+import { randomSeed, type RaceSnapshot, type TablesSelection } from '@mind-racer/engine';
 import { LocalRaceController, type LocalRaceControllerOptions } from './game/LocalRaceController';
 import { applyRaceResult, type Profile, type ProgressUpdate } from './progress/profile';
 import { loadProfile, saveProfile } from './progress/storage';
 import { RaceScreen } from './race/RaceScreen';
-import { Menu } from './screens/Menu';
+import { Menu, type MenuMode } from './screens/Menu';
 import { Onboarding } from './screens/Onboarding';
 import { Results } from './screens/Results';
 import { MultiplayerApp } from './multiplayer/MultiplayerApp';
@@ -26,7 +26,8 @@ type Screen =
       name: 'results';
       controller: LocalRaceController;
       snapshot: RaceSnapshot;
-      update: ProgressUpdate;
+      /** Absent for a tables practice, which does not count for progress. */
+      update?: ProgressUpdate;
       garageUnlocks: string[];
       daily?: { streak: number; shareText: string };
     };
@@ -61,14 +62,32 @@ export function App({
     if (linkCode) clearRoomLink();
   }, [linkCode]);
   const [lastLevel, setLastLevel] = useState<number | undefined>(undefined);
+  const [lastTables, setLastTables] = useState<TablesSelection | undefined>(undefined);
+  const [menuMode, setMenuMode] = useState<MenuMode>('levels');
   const [daily, setDaily] = useState<DailyData>(() => loadDaily());
 
   const startRace = useCallback(
     (level: number) => {
       if (!profile) return;
       setLastLevel(level);
+      setMenuMode('levels');
       const car = effectiveCar(garageStore.get(), progressOf(profile, daily));
       setScreen({ name: 'race', controller: createController({ seed: makeSeed(), level, playerName: profile.name, car }) });
+    },
+    [profile, daily, createController, makeSeed],
+  );
+
+  // A tables practice: the chosen tables against the bots, without adaptation and without counting (spec tables-practice).
+  const startTables = useCallback(
+    (tables: TablesSelection) => {
+      if (!profile) return;
+      setLastTables(tables);
+      setMenuMode('tables');
+      const car = effectiveCar(garageStore.get(), progressOf(profile, daily));
+      setScreen({
+        name: 'race',
+        controller: createController({ seed: makeSeed(), level: 1, tables, playerName: profile.name, car }),
+      });
     },
     [profile, daily, createController, makeSeed],
   );
@@ -123,6 +142,7 @@ export function App({
           controller.dispose();
           const mine = snapshot.results?.find((r) => r.id === controller.playerId);
           if (!mine) return setScreen({ name: 'menu' });
+          if (controller.tables) return setScreen({ name: 'results', controller, snapshot, garageUnlocks: [] });
           const update = applyRaceResult(profile, {
             level: snapshot.level,
             position: mine.position,
@@ -171,9 +191,12 @@ export function App({
         botProfiles={screen.controller.getState().botProfiles}
         cars={screen.controller.getState().cars}
         update={screen.update}
+        {...(screen.controller.tables ? { practice: screen.controller.tables } : {})}
         garageUnlocks={screen.garageUnlocks}
         daily={screen.daily}
-        onPlayAgain={() => startRace(screen.snapshot.level)}
+        onPlayAgain={() =>
+          screen.controller.tables ? startTables(screen.controller.tables) : startRace(screen.snapshot.level)
+        }
         onMenu={() => setScreen({ name: 'menu' })}
       />
     );
@@ -204,6 +227,9 @@ export function App({
       profile={profile}
       initialLevel={lastLevel}
       onStart={startRace}
+      onStartTables={startTables}
+      initialMode={menuMode}
+      {...(lastTables ? { initialTables: lastTables } : {})}
       onMultiplayer={() => setScreen({ name: 'multiplayer', session: createMultiplayerSession() })}
       onGarage={() => setScreen({ name: 'garage' })}
       daily={{ data: daily, onStart: startDaily }}

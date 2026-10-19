@@ -2,6 +2,7 @@ import { Crown, Lock, SignOut, WifiSlash } from '@phosphor-icons/react';
 import { MATH_LEVELS } from '@mind-racer/engine';
 import type { RoomPlayer } from '@mind-racer/protocol';
 import { Button } from '../ui/Button';
+import { tablesTitle } from '../ui/format';
 import { SoundToggle } from '../ui/SoundToggle';
 import { ShareRoom } from './ShareRoom';
 import { CarIcon } from '../garage/CarIcon';
@@ -33,6 +34,8 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
   const people = isClass ? room.players.filter((p) => p.role !== 'teacher') : room.players;
   const capacity = isClass ? 40 : 4;
   const raceInProgress = room.phase === 'racing';
+  // A tables race in a class: everyone practices what the teacher chose, so levels do not matter (spec classroom-mode).
+  const tables = room.tables ?? null;
 
   return (
     <main id="main" className={styles.page}>
@@ -71,8 +74,8 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
           </h2>
           <ul className={styles.players}>
             {people.map((p) => (
-              <li key={p.id} className={styles.player} data-me={p.id === playerId} aria-label={playerLabel(p, room.hostId)}>
-                <span className={styles.playerLevel}>N{p.level}</span>
+              <li key={p.id} className={styles.player} data-me={p.id === playerId} aria-label={playerLabel(p, room.hostId, !tables)}>
+                {!tables && <span className={styles.playerLevel}>N{p.level}</span>}
                 {p.car && <CarIcon car={p.car} size={24} className={styles.playerCar} />}
                 <span className={styles.playerName}>
                   {p.name}
@@ -89,30 +92,38 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
 
         <section className={styles.card} aria-labelledby="level-title">
           <h2 id="level-title" className={styles.cardTitle}>
-            Tu nivel
+            {tables ? 'Práctica de tablas' : 'Tu nivel'}
           </h2>
-          <div className={styles.levelGrid} role="group" aria-label="Tu nivel">
-            {MATH_LEVELS.map((l) => {
-              const locked = l.level > unlockedLevel;
-              const selected = me?.level === l.level;
-              return (
-                <button
-                  key={l.level}
-                  type="button"
-                  className={styles.levelButton}
-                  data-selected={selected}
-                  disabled={locked || me?.status === 'racing'}
-                  aria-pressed={selected}
-                  aria-label={`Nivel ${l.level}: ${l.description}${locked ? ' (bloqueado)' : ''}`}
-                  title={l.description}
-                  onClick={() => onSetLevel(l.level)}
-                >
-                  {locked ? <Lock size={16} weight="bold" aria-hidden /> : l.level}
-                </button>
-              );
-            })}
-          </div>
-          {me && <p className={styles.muted}>{MATH_LEVELS[me.level - 1]?.description}</p>}
+          {tables ? (
+            <p className={styles.notice} data-testid="today-tables">
+              Hoy: {tablesTitle(tables).toLowerCase()}
+            </p>
+          ) : (
+            <>
+              <div className={styles.levelGrid} role="group" aria-label="Tu nivel">
+                {MATH_LEVELS.map((l) => {
+                  const locked = l.level > unlockedLevel;
+                  const selected = me?.level === l.level;
+                  return (
+                    <button
+                      key={l.level}
+                      type="button"
+                      className={styles.levelButton}
+                      data-selected={selected}
+                      disabled={locked || me?.status === 'racing'}
+                      aria-pressed={selected}
+                      aria-label={`Nivel ${l.level}: ${l.description}${locked ? ' (bloqueado)' : ''}`}
+                      title={l.description}
+                      onClick={() => onSetLevel(l.level)}
+                    >
+                      {locked ? <Lock size={16} weight="bold" aria-hidden /> : l.level}
+                    </button>
+                  );
+                })}
+              </div>
+              {me && <p className={styles.muted}>{MATH_LEVELS[me.level - 1]?.description}</p>}
+            </>
+          )}
 
           <div className={styles.lobbyAction}>
             {raceInProgress && me?.status === 'waiting' ? (
@@ -135,8 +146,8 @@ export function Lobby({ room, playerId, unlockedLevel, reconnecting, onSetLevel,
   );
 }
 
-function playerLabel(p: RoomPlayer, hostId: string | null): string {
-  const parts = [`${p.name}, nivel ${p.level}`];
+function playerLabel(p: RoomPlayer, hostId: string | null, withLevel: boolean): string {
+  const parts = [withLevel ? `${p.name}, nivel ${p.level}` : p.name];
   if (p.id === hostId) parts.push('anfitrión');
   if (!p.connected) parts.push('desconectado');
   const status = STATUS_TEXT[p.status];

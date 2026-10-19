@@ -8,9 +8,11 @@ interface HudProps {
   player: RunnerState;
   runnerCount: number;
   elapsedMs: number;
+  /** Off in a tables race, whose level is fixed and means nothing to the player. */
+  showLevel?: boolean;
 }
 
-export function Hud({ player, runnerCount, elapsedMs }: HudProps) {
+export function Hud({ player, runnerCount, elapsedMs, showLevel = true }: HudProps) {
   return (
     <dl className={styles.hud} aria-label="Indicadores">
       <Item icon={<Medal size={20} aria-hidden />} label="Posición" testId="hud-position">
@@ -25,9 +27,11 @@ export function Hud({ player, runnerCount, elapsedMs }: HudProps) {
       <Item icon={<Timer size={20} aria-hidden />} label="Tiempo" testId="hud-time">
         {formatTime(player.finishTimeMs ?? Math.max(0, elapsedMs))}
       </Item>
-      <Item icon={<Brain size={20} aria-hidden />} label="Nivel" testId="hud-level">
-        {player.level}
-      </Item>
+      {showLevel && (
+        <Item icon={<Brain size={20} aria-hidden />} label="Nivel" testId="hud-level">
+          {player.level}
+        </Item>
+      )}
     </dl>
   );
 }
