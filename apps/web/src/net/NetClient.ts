@@ -129,6 +129,17 @@ export class NetClient {
     }
   }
 
+  /**
+   * Skips the wait before the next reconnection attempt, e.g. when the device is back online (design D5).
+   * Does nothing while connected, while an attempt is already under way, or after `close()`.
+   */
+  retryNow(): void {
+    if (this.timer === null || this.statusValue === 'closed') return;
+    this.clearTimer(this.timer);
+    this.timer = null;
+    this.open('reconnecting');
+  }
+
   /** Closes for good: no reconnection. */
   close(): void {
     this.setStatus('closed');

@@ -160,6 +160,38 @@ describe('NetClient', () => {
     client.connect();
     expect(net.sockets).toHaveLength(1);
   });
+
+  it('retryNow() salta la espera y envía lo que estaba en cola (Vuelve la conexión)', () => {
+    const { net, client } = setup();
+    client.connect();
+    client.send({ type: 'join', code: 'K7QF', name: 'Ana', level: 2 });
+    for (let i = 0; i < 6; i++) {
+      net.socket.drop();
+      net.runTimer();
+    }
+    net.socket.drop();
+    expect(net.timers.map((t) => t.ms)).toEqual([5000]);
+
+    client.retryNow();
+    expect(net.sockets).toHaveLength(8);
+    expect(net.timers.map((t) => t.ms)).toEqual([CONNECT_TIMEOUT_MS]);
+    net.socket.open();
+    expect(net.socket.sent).toEqual([{ type: 'join', code: 'K7QF', name: 'Ana', level: 2 }]);
+  });
+
+  it('retryNow() no hace nada conectado, con un intento en curso o cerrado', () => {
+    const { net, client } = setup();
+    client.connect();
+    client.retryNow(); // intento en curso
+    expect(net.sockets).toHaveLength(1);
+    net.socket.open();
+    client.retryNow();
+    expect(net.sockets).toHaveLength(1);
+    net.socket.drop();
+    client.close();
+    client.retryNow();
+    expect(net.sockets).toHaveLength(1);
+  });
 });
 
 describe('MultiplayerSession.resume', () => {

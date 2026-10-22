@@ -1,14 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { RaceConfig } from '@mind-racer/engine';
-import { App } from './App';
+import { App, type AppProps } from './App';
 import { LocalRaceController, type LocalRaceControllerOptions } from './game/LocalRaceController';
 import { createProfile } from './progress/profile';
 import { PROFILE_KEY, saveProfile } from './progress/storage';
 
 /** App wired to a fake clock and short races. */
-function setup(config: Partial<RaceConfig> = { distance: 40 }) {
+function setup(config: Partial<RaceConfig> = { distance: 40 }, props: Partial<AppProps> = {}) {
   let wall = 0;
   let nextSeed = 100;
   const controllers: LocalRaceController[] = [];
@@ -19,7 +19,7 @@ function setup(config: Partial<RaceConfig> = { distance: 40 }) {
     controllers.push(controller);
     return controller;
   };
-  render(<App createController={createController} makeSeed={() => nextSeed++} />);
+  render(<App createController={createController} makeSeed={() => nextSeed++} {...props} />);
 
   const current = () => controllers[controllers.length - 1]!;
   /** Advances the fake clock in 16 ms frames. */
@@ -183,5 +183,21 @@ describe('App: práctica de tablas', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Correr de nuevo' }));
     expect(current().tables).toEqual({ tables: [7], divisions: false });
     expect(screen.getByRole('heading', { name: 'Tabla del 7' })).toBeInTheDocument();
+  });
+});
+
+describe('App: versión nueva', () => {
+  it('el aviso aparece en el menú y nunca durante una carrera (Versión nueva sin interrupciones)', async () => {
+    withProfile();
+    const applyUpdate = vi.fn();
+    const waiting = { needRefresh: true };
+    const updates = { get: () => waiting, subscribe: () => () => {}, applyUpdate };
+    setup(undefined, { updates });
+    expect(screen.getByText('Hay una versión nueva')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Correr en nivel 1' }));
+    expect(screen.getByText('Prepárate')).toBeInTheDocument();
+    expect(screen.queryByText('Hay una versión nueva')).not.toBeInTheDocument();
+    expect(applyUpdate).not.toHaveBeenCalled();
   });
 });

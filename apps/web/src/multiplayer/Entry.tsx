@@ -7,11 +7,16 @@ import styles from './Multiplayer.module.css';
 /** After this long without a connection, assume the free server is waking up. */
 export const WAKING_AFTER_MS = 5000;
 
+export const DEVICE_OFFLINE_MESSAGE =
+  'Sin conexión a internet. Jugar con amigos necesita internet; mientras tanto puedes correr contra los bots.';
+
 interface EntryProps {
   pending: boolean;
   error: string | null;
   /** When the connection stopped being open; null while open. */
   offlineSince: number | null;
+  /** The device has no internet: say so instead of blaming a sleeping server (design D5). */
+  deviceOffline?: boolean;
   /** Code from a room link, shown in the field. */
   initialCode?: string;
   onCreate: () => void;
@@ -28,6 +33,7 @@ export function Entry({
   pending,
   error,
   offlineSince,
+  deviceOffline = false,
   initialCode = '',
   onCreate,
   onCreateClass,
@@ -74,7 +80,11 @@ export function Entry({
 
       {connecting && (
         <p className={styles.banner} role="status">
-          {waking ? 'Despertando el servidor, puede tardar hasta un minuto' : 'Conectando con el servidor…'}
+          {deviceOffline
+            ? DEVICE_OFFLINE_MESSAGE
+            : waking
+              ? 'Despertando el servidor, puede tardar hasta un minuto'
+              : 'Conectando con el servidor…'}
         </p>
       )}
 

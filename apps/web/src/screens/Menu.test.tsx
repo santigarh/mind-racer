@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { applyRaceResult, createProfile } from '../progress/profile';
 import { Menu } from './Menu';
@@ -103,5 +103,62 @@ describe('Menu: práctica de tablas', () => {
     await userEvent.click(screen.getByRole('switch', { name: 'Con divisiones' }));
     await userEvent.click(screen.getByRole('button', { name: 'Correr tablas' }));
     expect(onStartTables).toHaveBeenCalledWith({ tables: [6], divisions: true });
+  });
+});
+
+function fakeStore<S>(initial: S) {
+  let state = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => state,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    set(next: S) {
+      state = next;
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+
+describe('Menu: versión nueva', () => {
+  const profile = createProfile('Ana', 'beginner');
+
+  it('muestra "Hay una versión nueva" y "Actualizar" la aplica (Aviso en el menú)', async () => {
+    const store = { ...fakeStore({ needRefresh: false }), applyUpdate: vi.fn() };
+    render(<Menu profile={profile} onStart={vi.fn()} update={store} />);
+    expect(screen.queryByText('Hay una versión nueva')).not.toBeInTheDocument();
+
+    act(() => store.set({ needRefresh: true }));
+    expect(screen.getByRole('status')).toHaveTextContent('Hay una versión nueva');
+    await userEvent.click(screen.getByRole('button', { name: 'Actualizar' }));
+    expect(store.applyUpdate).toHaveBeenCalledOnce();
+  });
+
+  it('sin la prop, el menú no cambia', () => {
+    render(<Menu profile={profile} onStart={vi.fn()} />);
+    expect(screen.queryByText('Hay una versión nueva')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Instalar app' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Menu: instalar app', () => {
+  const profile = createProfile('Ana', 'beginner');
+
+  it('con la oferta del navegador, "Instalar app" abre el diálogo (Navegador con instalación)', async () => {
+    const store = { ...fakeStore({ canInstall: true }), install: vi.fn(() => Promise.resolve()) };
+    render(<Menu profile={profile} onStart={vi.fn()} install={store} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Instalar app' }));
+    expect(store.install).toHaveBeenCalledOnce();
+
+    act(() => store.set({ canInstall: false }));
+    expect(screen.queryByRole('button', { name: 'Instalar app' })).not.toBeInTheDocument();
+  });
+
+  it('sin oferta del navegador o ya instalada, no muestra el botón (Navegador sin instalación propia, Ya instalada)', () => {
+    const store = { ...fakeStore({ canInstall: false }), install: vi.fn(() => Promise.resolve()) };
+    render(<Menu profile={profile} onStart={vi.fn()} install={store} />);
+    expect(screen.queryByRole('button', { name: 'Instalar app' })).not.toBeInTheDocument();
   });
 });

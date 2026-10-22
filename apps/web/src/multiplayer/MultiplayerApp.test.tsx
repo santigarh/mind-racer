@@ -4,13 +4,13 @@ import userEvent from '@testing-library/user-event';
 import type { NetRunnerResult, RoomPlayer, ServerMessage } from '@mind-racer/protocol';
 import { App } from '../App';
 import { NetClient } from '../net/NetClient';
-import { MultiplayerSession } from '../net/MultiplayerSession';
+import { MultiplayerSession, type DeviceNetwork } from '../net/MultiplayerSession';
 import { fakeNetwork } from '../net/fakeSocket';
 import { createProfile } from '../progress/profile';
 import { PROFILE_KEY, saveProfile } from '../progress/storage';
 
 /** App with a saved profile and a fake server behind the multiplayer session. */
-function setup(unlockedLevel = 2, name = 'Lucía') {
+function setup(unlockedLevel = 2, name = 'Lucía', network?: DeviceNetwork) {
   saveProfile({ ...createProfile(name, 'beginner'), unlockedLevel });
   const net = fakeNetwork();
   let now = 0;
@@ -27,6 +27,7 @@ function setup(unlockedLevel = 2, name = 'Lucía') {
             clearTimer: net.clearTimer,
           }),
           raceOptions: { now: () => now, autoLoop: false },
+          ...(network ? { network } : {}),
         });
         sessions.push(session);
         return session;
@@ -337,6 +338,66 @@ describe('servidor despertando', () => {
       vi.advanceTimersByTime(6000);
     });
     expect(screen.getByText('Despertando el servidor, puede tardar hasta un minuto')).toBeInTheDocument();
+  });
+});
+
+describe('Jugar con amigos sin internet', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const OFFLINE = 'Sin conexión a internet. Jugar con amigos necesita internet; mientras tanto puedes correr contra los bots.';
+
+  function offlineDevice() {
+    let online = false;
+    const listeners = new Set<() => void>();
+    return {
+      isOnline: () => online,
+      subscribe(listener: () => void) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      goOnline: () =>
+        act(() => {
+          online = true;
+          listeners.forEach((listener) => listener());
+        }),
+    };
+  }
+
+  it('sin internet avisa que no hay conexión y no que el servidor despierta (Sin internet)', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const device = offlineDevice();
+    const ctx = setup(2, 'Lucía', device);
+    fireEvent.click(screen.getByRole('button', { name: /jugar con amigos/i }));
+    fireEvent.click(screen.getByRole('button', { name: /crear sala de clase/i }));
+    act(() => {
+      ctx.net.socket.drop();
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(OFFLINE);
+    expect(screen.queryByText(/Despertando el servidor/)).not.toBeInTheDocument();
+  });
+
+  it('al volver la conexión dice "Conectando…" y entra a la sala sin volver a pulsar (Vuelve la conexión)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const device = offlineDevice();
+    const ctx = setup(2, 'Lucía', device);
+    fireEvent.click(screen.getByRole('button', { name: /jugar con amigos/i }));
+    fireEvent.change(screen.getByLabelText(/código/i), { target: { value: 'k7qf' } });
+    fireEvent.click(screen.getByRole('button', { name: /^unirse/i }));
+    act(() => {
+      ctx.net.socket.drop();
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(OFFLINE);
+
+    device.goOnline();
+    expect(screen.getByRole('status')).toHaveTextContent('Conectando con el servidor…');
+    act(() => ctx.net.socket.open());
+    expect(ctx.sent()).toEqual([{ type: 'join', code: 'K7QF', name: 'Lucía', level: 2, car: CLASSIC }]);
+    ctx.server({ type: 'joined', code: 'K7QF', playerId: 'p2', token: 't' }, room([player('p1', 'Papá', 8), player('p2', 'Lucía', 2)]));
+    expect(screen.getByTestId('room-code')).toHaveTextContent('K7QF');
   });
 });
 

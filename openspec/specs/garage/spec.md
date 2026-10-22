@@ -45,7 +45,7 @@ El garaje SHALL ofrecer estas pinturas, cada una disponible cuando el progreso c
 - **THEN** la pintura roja queda disponible
 
 ### Requirement: Cómo se mide el progreso
-Las carreras terminadas y las victorias SHALL sumarse en todos los niveles, locales y en línea, tal como ya se guardan en el perfil. La racha SHALL ser la mejor racha del desafío diario. Un desbloqueo SHALL ser permanente aunque luego la racha se pierda. El juego no SHALL usar monedas, tienda ni compras.
+Las carreras terminadas y las victorias SHALL sumarse en todos los niveles, locales y en línea, tal como ya se guardan en el perfil. Las carreras de tablas no SHALL sumar carreras ni victorias. La racha SHALL ser la mejor racha del desafío diario. Un desbloqueo SHALL ser permanente aunque luego la racha se pierda. El juego no SHALL usar monedas, tienda ni compras.
 
 #### Scenario: Racha perdida
 - **WHEN** el jugador llegó a una racha de 3 días y después se le cortó
@@ -54,6 +54,10 @@ Las carreras terminadas y las victorias SHALL sumarse en todos los niveles, loca
 #### Scenario: Victorias en distintos niveles
 - **WHEN** el jugador ganó 3 carreras en el nivel 2 y 2 en el nivel 5
 - **THEN** cuenta con 5 victorias y la pintura cian está disponible
+
+#### Scenario: Victorias en prácticas de tablas
+- **WHEN** el jugador tiene 4 victorias en carreras por nivel y gana una práctica de tablas
+- **THEN** sigue contando con 4 victorias
 
 ### Requirement: Pantalla del garaje
 El menú SHALL tener un acceso "Garaje". El garaje SHALL mostrar una vista previa del auto elegido y la lista de vehículos y pinturas. Cada elemento bloqueado SHALL mostrar su condición y el avance hacia ella, por ejemplo "Gana 3 carreras · 1/3". Elegir un vehículo o una pintura disponible SHALL cambiar la vista previa y guardar la elección. Los elementos bloqueados no SHALL poder elegirse.

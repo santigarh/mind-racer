@@ -131,6 +131,7 @@ export function MultiplayerApp({
         pending={view.pending}
         error={view.error?.message ?? null}
         offlineSince={view.offlineSince}
+        deviceOffline={view.deviceOffline}
         initialCode={autoJoinCode ?? undefined}
         onCreate={() => session.create(profile.name, profile.unlockedLevel, car)}
         onCreateClass={() => session.create(profile.name, profile.unlockedLevel, car, 'class')}

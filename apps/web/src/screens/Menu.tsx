@@ -8,6 +8,9 @@ import type { DailyData } from '../daily/daily';
 import { formatDecimal, formatPercent, formatTime, tablesTitle } from '../ui/format';
 import { EMPTY_TABLES, TablesPicker, toSelection, type TablesDraft } from '../tables/TablesPicker';
 import { UNLOCK_MIN_ACCURACY, isLevelUnlocked, statsFor, type Profile } from '../progress/profile';
+import { InstallButton, UpdateBanner } from '../pwa/PwaMenu';
+import type { InstallStore } from '../pwa/install';
+import type { UpdateStore } from '../pwa/updates';
 import styles from './Menu.module.css';
 
 interface MenuProps {
@@ -25,6 +28,10 @@ interface MenuProps {
   onGarage?: () => void;
   /** "Desafío de hoy": saved daily data and how to start today's race. */
   daily?: { data: DailyData; onStart: (level: number) => void };
+  /** Shows "Hay una versión nueva" when one is waiting (spec installable-app). */
+  update?: UpdateStore;
+  /** Shows "Instalar app" while the browser offers it. */
+  install?: InstallStore;
 }
 
 export type MenuMode = 'levels' | 'tables';
@@ -39,6 +46,8 @@ export function Menu({
   onMultiplayer,
   onGarage,
   daily,
+  update,
+  install,
 }: MenuProps) {
   const [level, setLevel] = useState(() =>
     initialLevel && isLevelUnlocked(profile, initialLevel) ? initialLevel : profile.unlockedLevel,
@@ -58,6 +67,7 @@ export function Menu({
         </div>
         <div className={styles.headerActions}>
           <span className={styles.pilot}>Piloto: {profile.name}</span>
+          {install && <InstallButton store={install} />}
           <SoundToggle />
           {onGarage && (
             <Button variant="secondary" size="small" onClick={onGarage} aria-label="Garaje">
@@ -73,6 +83,8 @@ export function Menu({
           )}
         </div>
       </header>
+
+      {update && <UpdateBanner store={update} />}
 
       <section className={styles.hero} aria-labelledby="menu-title">
         <h1 id="menu-title" className={styles.title}>
