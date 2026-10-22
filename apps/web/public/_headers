@@ -1,0 +1,16 @@
+# Cache rules for the Cloudflare Worker static assets (spec installable-app, design D9).
+# The app shell and the service worker are always revalidated, so a new deploy is found.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# Names with a content hash never change.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/workbox-*.js
+  Cache-Control: public, max-age=31536000, immutable

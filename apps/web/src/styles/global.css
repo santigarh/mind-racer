@@ -66,8 +66,8 @@
   --dur: 700ms;
   --dur-fast: 300ms;
 
-  --font: 'Geist', system-ui, sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, monospace;
+  --font: 'Geist Variable', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 }
 
 *,

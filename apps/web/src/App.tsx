@@ -15,6 +15,8 @@ import { dailyShareText } from './daily/shareText';
 import { Garage } from './garage/Garage';
 import { effectiveCar, garageStore } from './garage/choice';
 import { newlyUnlocked, progressOf } from './garage/unlocks';
+import type { InstallStore } from './pwa/install';
+import type { UpdateStore } from './pwa/updates';
 
 type Screen =
   | { name: 'onboarding' }
@@ -37,6 +39,10 @@ export interface AppProps {
   createController?: (options: LocalRaceControllerOptions) => LocalRaceController;
   makeSeed?: () => number;
   createMultiplayerSession?: () => MultiplayerSession;
+  /** New version waiting; only the menu shows it, so races and rooms never reload (spec installable-app). */
+  updates?: UpdateStore;
+  /** The browser's install offer, for the menu's "Instalar app". */
+  install?: InstallStore;
 }
 
 const defaultCreateController = (options: LocalRaceControllerOptions) => new LocalRaceController(options);
@@ -45,6 +51,8 @@ export function App({
   createController = defaultCreateController,
   makeSeed = randomSeed,
   createMultiplayerSession = () => new MultiplayerSession(),
+  updates,
+  install,
 }: AppProps) {
   const [profile, setProfile] = useState<Profile | null>(() => loadProfile());
   // Opened with a room link (`?sala=K7QF`): go to that room, after creating a profile if needed.
@@ -233,6 +241,8 @@ export function App({
       onMultiplayer={() => setScreen({ name: 'multiplayer', session: createMultiplayerSession() })}
       onGarage={() => setScreen({ name: 'garage' })}
       daily={{ data: daily, onStart: startDaily }}
+      {...(updates ? { update: updates } : {})}
+      {...(install ? { install } : {})}
     />
   );
 }

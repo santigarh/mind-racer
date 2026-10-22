@@ -36,6 +36,25 @@ pnpm --filter server build:prod   # empaqueta el servidor en apps/server/dist/ma
 
 Para un solo paquete: `pnpm --filter @mind-racer/engine test`, `pnpm --filter server test` o `pnpm --filter web dev`.
 
+### Probar la app instalable
+
+`pnpm dev` no registra el service worker, a propósito: guardaría código viejo mientras programas. Para probar la
+instalación, el modo sin conexión y el aviso de versión nueva, usa el build:
+
+```bash
+pnpm --filter web build
+pnpm --filter web preview   # http://localhost:4173
+```
+
+En Chrome, *DevTools → Application* muestra el manifiesto y el service worker, y *Network → Offline* simula estar
+sin internet. Para ver el aviso de versión nueva, cambia un texto, vuelve a hacer `build` y recarga la página.
+
+Los íconos de la app salen de `apps/web/public/icons/icon.svg`. Si cambias ese archivo, regenera los PNG y súbelos al repo:
+
+```bash
+pnpm --filter web icons
+```
+
 ## Jugar en familia en la red de casa
 
 1. En la computadora que hará de servidor, ejecuta `pnpm dev`. La consola muestra sus direcciones de red,
@@ -49,6 +68,9 @@ Para un solo paquete: `pnpm --filter @mind-racer/engine test`, `pnpm --filter se
 
 El botón **Compartir** abre el menú de compartir del celular, o copia el enlace en la computadora. Por `http://` en la red
 de casa los navegadores no permiten ninguna de las dos cosas: copia el enlace del campo o usa el QR.
+
+Por `http://` tampoco se puede instalar la app ni usarla sin internet (ver [Instalar como app](#instalar-como-app)):
+en la red de casa el juego funciona igual, pero necesita la computadora encendida.
 
 La app se conecta sola al servidor de la misma computadora que la sirvió (puerto 8787). Para usar otro servidor,
 define `VITE_SERVER_URL`, por ejemplo `VITE_SERVER_URL=ws://192.168.1.50:8787`.
@@ -101,6 +123,22 @@ En el **Garaje** (botón en el menú) eliges tu vehículo y tu pintura. Se desbl
 
 Tu auto corre en la pista y, en las salas, todos ven el de cada quien en el lobby, la pista y los resultados.
 Se elige antes de entrar a una sala. Los resultados avisan cuando una carrera te desbloquea algo nuevo.
+
+## Instalar como app
+
+Mind Racer se puede instalar en la pantalla de inicio y abre a pantalla completa, como una app:
+
+- **Android (Chrome) y computadoras (Chrome o Edge):** botón **Instalar app** en el menú, o el ícono de instalar de la
+  barra de direcciones.
+- **iPhone y iPad (Safari):** *Compartir → Agregar a inicio*.
+
+Después de abrirlo una vez con internet, **funciona sin conexión**: carreras contra bots, práctica de tablas, desafío
+diario y garaje. **Jugar con amigos** y el **modo clase** necesitan internet; sin conexión la app lo avisa y entra sola a
+la sala cuando vuelve.
+
+Cuando se publica una versión nueva, la app no se recarga sola: el menú muestra **Hay una versión nueva** con el botón
+**Actualizar**. Si nadie lo pulsa, la versión nueva se usa la próxima vez que se abra el juego. Nunca interrumpe una
+carrera ni una clase. El progreso, el garaje y la racha se conservan.
 
 ## Modo clase
 
@@ -174,8 +212,17 @@ Sin `ALLOWED_ORIGINS` el servidor acepta cualquier origen, como en la red local.
 
    `apps/web/wrangler.jsonc` le dice a Cloudflare que publique `apps/web/dist` como sitio de una sola página. Sin ese archivo,
    Cloudflare intenta detectar la app sola y falla en este monorepo (por ejemplo con `Unsupported URL Type "workspace:"`).
+   `apps/web/public/_headers` fija la caché: `index.html`, `sw.js` y el manifiesto se revalidan siempre, para que los
+   dispositivos encuentren cada versión nueva; los archivos de `assets/` llevan un hash en el nombre y se guardan un año.
 4. **Ajustar el origen:** en Render, *Environment*, pon en `ALLOWED_ORIGINS` la URL exacta de la web (sin `/` al final) y guarda; Render se redespliega solo.
 5. **Probar:** abre la URL de la web desde el celular **con datos móviles**, crea una sala y únete desde otro dispositivo con el código.
+
+### Si una versión publicada falla en los dispositivos
+
+La app instalada guarda la versión que descargó. Revertir el commit publica una versión nueva que llega con el aviso
+**Actualizar**, como cualquier otra. Para **quitar** la app instalable por completo no alcanza con borrar el plugin: hay que
+publicar un build con `selfDestroying: true` en la configuración de `VitePWA` (`apps/web/vite.config.ts`), que borra el
+service worker y su caché en cada dispositivo, y mantenerlo publicado unas semanas antes de quitar el plugin.
 
 ### Si el build falla por pnpm
 

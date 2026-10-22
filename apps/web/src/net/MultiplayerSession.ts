@@ -17,6 +17,30 @@ export interface MultiplayerView {
   pending: boolean;
   /** When the connection stopped being open (or the first attempt began); null while open. */
   offlineSince: number | null;
+  /** The device says it has no internet at all (not just a sleeping server). */
+  deviceOffline: boolean;
+}
+
+/** Whether the device has internet, as the browser reports it (design D5). */
+export interface DeviceNetwork {
+  /** False is reliable ("surely offline"); true only means "maybe online". */
+  isOnline(): boolean;
+  /** Called when the device goes online or offline. */
+  subscribe(listener: () => void): () => void;
+}
+
+export function browserNetwork(): DeviceNetwork {
+  return {
+    isOnline: () => globalThis.navigator?.onLine !== false,
+    subscribe(listener) {
+      globalThis.addEventListener?.('online', listener);
+      globalThis.addEventListener?.('offline', listener);
+      return () => {
+        globalThis.removeEventListener?.('online', listener);
+        globalThis.removeEventListener?.('offline', listener);
+      };
+    },
+  };
 }
 
 export interface MultiplayerSessionOptions {
@@ -25,6 +49,8 @@ export interface MultiplayerSessionOptions {
   raceOptions?: { now?: () => number; autoLoop?: boolean };
   /** Wall clock for `offlineSince`. */
   now?: () => number;
+  /** The browser's online/offline state by default. */
+  network?: DeviceNetwork;
 }
 
 /**
@@ -43,6 +69,7 @@ export class MultiplayerSession {
     this.client = options.client ?? new NetClient({ url: serverUrl() });
     this.raceOptions = options.raceOptions;
     this.now = options.now ?? (() => Date.now());
+    const network = options.network ?? browserNetwork();
     this.view = {
       connection: this.client.status,
       playerId: null,
@@ -51,6 +78,7 @@ export class MultiplayerSession {
       race: null,
       pending: false,
       offlineSince: null,
+      deviceOffline: !network.isOnline(),
     };
     this.unsubscribe = [
       this.client.onMessage((m) => this.receive(m)),
@@ -60,6 +88,14 @@ export class MultiplayerSession {
           offlineSince: connection === 'open' ? null : (this.view.offlineSince ?? this.now()),
         }),
       ),
+      network.subscribe(() => {
+        const deviceOffline = !network.isOnline();
+        if (deviceOffline || this.view.offlineSince === null) return this.update({ deviceOffline });
+        // Back online: "Conectando…" again, and the server gets the full 5 s before "Despertando…".
+        this.update({ deviceOffline, offlineSince: this.now() });
+        // Try the server now instead of waiting up to 5 s for the next attempt.
+        this.client.retryNow();
+      }),
     ];
   }
 
